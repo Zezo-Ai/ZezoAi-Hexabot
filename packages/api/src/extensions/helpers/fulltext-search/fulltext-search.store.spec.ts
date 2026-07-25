@@ -87,6 +87,14 @@ describe('FullTextSearchStore (SQLite FTS5)', () => {
     }
   });
 
+  it('retrieves on any token (OR) for conversational queries', async () => {
+    // Under implicit-AND this returns nothing because no single document
+    // contains every token; OR keeps recall high and lets bm25 rank.
+    const hits = await store.search('how do I find Jean in the store');
+
+    expect(hits.some((hit) => hit.title === 'Jean')).toBe(true);
+  });
+
   it('handles FTS5 special characters and token-less queries', async () => {
     await expect(store.search('"unbalanced (quote* :')).resolves.toEqual(
       expect.any(Array),

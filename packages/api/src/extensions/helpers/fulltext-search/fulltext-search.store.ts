@@ -89,6 +89,11 @@ export class FullTextSearchStore extends ContentSearchStore {
     query: string,
     options: FullTextSearchOptions,
   ): Promise<FullTextSearchHit[]> {
+    const tsquery = this.toTsQuery(query);
+    if (!tsquery) {
+      return [];
+    }
+
     const table = this.contentTable;
     const idColumn = quoteIdentifier(this.columnName('id'));
     const titleColumn = quoteIdentifier(this.columnName('title'));
@@ -96,8 +101,8 @@ export class FullTextSearchStore extends ContentSearchStore {
     const statusColumn = quoteIdentifier(this.columnName('status'));
     const contentTypeColumn = quoteIdentifier(this.contentTypeColumnName);
     const vector = `to_tsvector('simple', coalesce(${textColumn}, ''))`;
-    const params: unknown[] = [query];
-    const conditions = [`${vector} @@ websearch_to_tsquery('simple', $1)`];
+    const params: unknown[] = [tsquery];
+    const conditions = [`${vector} @@ to_tsquery('simple', $1)`];
 
     if (typeof options.status === 'boolean') {
       params.push(options.status);
@@ -111,7 +116,7 @@ export class FullTextSearchStore extends ContentSearchStore {
     const rows = await this.dataSource.query(
       `SELECT ${idColumn} AS "contentId", ${titleColumn} AS "title", ` +
         `${textColumn} AS "text", ${contentTypeColumn} AS "contentTypeId", ` +
-        `ts_rank(${vector}, websearch_to_tsquery('simple', $1)) AS "score" ` +
+        `ts_rank(${vector}, to_tsquery('simple', $1)) AS "score" ` +
         `FROM ${table} WHERE ${conditions.join(' AND ')} ` +
         `ORDER BY "score" DESC LIMIT ${this.normalizeLimit(options.limit)}`,
       params,
@@ -169,9 +174,30 @@ export class FullTextSearchStore extends ContentSearchStore {
     );
   }
 
-  private toFts5Match(query: string): string {
-    const tokens = query.match(/[\p{L}\p{N}_]+/gu) ?? [];
+  private tokenize(query: string): string[] {
+    return query.match(/[\p{L}\p{N}_]+/gu) ?? [];
+  }
 
-    return tokens.map((token) => `"${token.replace(/"/g, '""')}"`).join(' ');
+  /**
+   * Builds a disjunctive (OR) FTS5 MATCH expression so a natural-language
+   * query retrieves documents matching any token; bm25 ranking then floats
+   * the documents matching the most (and rarest) terms to the top.
+   */
+  private toFts5Match(query: string): string {
+    return this.tokenize(query)
+      .map((token) => `"${token.replace(/"/g, '""')}"`)
+      .join(' OR ');
+  }
+
+  /**
+   * Builds a disjunctive (OR) `to_tsquery` expression. `websearch_to_tsquery`
+   * always ANDs loose terms, which makes conversational queries retrieve
+   * nothing; OR-ing the lexemes and leaning on `ts_rank` mirrors the SQLite
+   * path and keeps recall high for RAG.
+   */
+  private toTsQuery(query: string): string {
+    return this.tokenize(query)
+      .map((token) => `'${token.replace(/'/g, "''")}'`)
+      .join(' | ');
   }
 }
