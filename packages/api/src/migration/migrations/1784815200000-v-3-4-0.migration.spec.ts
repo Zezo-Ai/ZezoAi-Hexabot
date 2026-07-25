@@ -150,6 +150,63 @@ describe('Migration v3.4.0', () => {
     expect(remaining).toEqual([{ name: 'idx_contents_id' }]);
   });
 
+  const seedLegacyContentsFts = async () => {
+    // Reproduces the llamaindex-era external-content FTS5 table and triggers.
+    await queryRunner.query(
+      `CREATE VIRTUAL TABLE "contents_fts" USING fts5(` +
+        `title, searchText, content='contents', content_rowid='rowid')`,
+    );
+    await queryRunner.query(
+      `CREATE TRIGGER "contents_fts_after_insert" AFTER INSERT ON "contents" ` +
+        `BEGIN INSERT INTO contents_fts(rowid, title, searchText) ` +
+        `VALUES (new.rowid, new.title, new."searchText"); END`,
+    );
+    await queryRunner.query(
+      `CREATE TRIGGER "contents_fts_after_delete" AFTER DELETE ON "contents" ` +
+        `BEGIN INSERT INTO contents_fts(contents_fts, rowid, title, searchText) ` +
+        `VALUES ('delete', old.rowid, old.title, old."searchText"); END`,
+    );
+    await queryRunner.query(
+      `CREATE TRIGGER "contents_fts_after_update" AFTER UPDATE ON "contents" ` +
+        `BEGIN INSERT INTO contents_fts(contents_fts, rowid, title, searchText) ` +
+        `VALUES ('delete', old.rowid, old.title, old."searchText"); ` +
+        `INSERT INTO contents_fts(rowid, title, searchText) ` +
+        `VALUES (new.rowid, new.title, new."searchText"); END`,
+    );
+  };
+
+  it('rebuilds a legacy llamaindex contents_fts table with the new schema', async () => {
+    // The "contents" table needs a "title" column for the legacy triggers.
+    await queryRunner.query(`ALTER TABLE "contents" ADD COLUMN "title" text`);
+    await seedLegacyContentsFts();
+
+    await new Migration1784815200000_V3_4_0().up(queryRunner);
+
+    // The rebuilt table exposes the new "id"/"searchText" columns and is
+    // backfilled from "contents".
+    expect(
+      await queryRunner.query(
+        `SELECT "id", "searchText" FROM "contents_fts" ORDER BY "id"`,
+      ),
+    ).toEqual([{ id: 'content-1', searchText: 'hello world' }]);
+    // No legacy triggers survive to break subsequent writes to "contents".
+    expect(
+      await queryRunner.query(
+        `SELECT name FROM sqlite_master WHERE type = 'trigger' ` +
+          `AND name LIKE 'contents_fts_after_%'`,
+      ),
+    ).toEqual([]);
+    // The new triggers keep the rebuilt index in sync.
+    await queryRunner.query(
+      `INSERT INTO "contents" ("id", "searchText") VALUES ('content-2', 'second doc')`,
+    );
+    expect(
+      await queryRunner.query(
+        `SELECT "id" FROM "contents_fts" WHERE "contents_fts" MATCH 'second' `,
+      ),
+    ).toEqual([{ id: 'content-2' }]);
+  });
+
   it('migrates SQLite embedding installations to lexical while preserving configuration', async () => {
     await seedLegacyEmbeddingSettings();
     await seedNewDefaults();

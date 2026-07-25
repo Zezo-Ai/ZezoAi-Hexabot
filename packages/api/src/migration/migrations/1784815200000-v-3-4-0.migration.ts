@@ -186,6 +186,17 @@ export default class Migration1784815200000_V3_4_0
   private async createSqliteLexicalIndex(
     queryRunner: QueryRunner,
   ): Promise<void> {
+    // The llamaindex-era RAG left a "contents_fts" FTS5 table with an
+    // incompatible schema (external-content `fts5(title, searchText,
+    // content='contents')`) plus its own AFTER triggers on "contents". A plain
+    // `CREATE VIRTUAL TABLE IF NOT EXISTS` would silently keep that legacy table
+    // — the "id" column doesn't exist there, so the backfill INSERT below and
+    // the stale triggers both fail on any DB upgraded from a llamaindex
+    // version. Drop the legacy structures (and the current ones, for
+    // idempotent re-runs) before recreating, so the table is always rebuilt
+    // with the new schema. `DROP TABLE` on an FTS5 table also removes its
+    // shadow tables (_data/_idx/_docsize/_config).
+    await this.dropLegacySqliteLexicalIndex(queryRunner);
     await queryRunner.query(
       `CREATE VIRTUAL TABLE IF NOT EXISTS "contents_fts" ` +
         `USING fts5("id" UNINDEXED, "searchText", tokenize = 'unicode61')`,
@@ -213,6 +224,32 @@ export default class Migration1784815200000_V3_4_0
       `INSERT INTO "contents_fts" ("id", "searchText") ` +
         `SELECT "id", "searchText" FROM "contents"`,
     );
+  }
+
+  /**
+   * Removes any pre-existing "contents_fts" full-text structures before the
+   * lexical index is rebuilt. This covers both the llamaindex-era triggers
+   * (`contents_fts_after_{insert,update,delete}`) and the current ones
+   * (`contents_fts_{insert,update,delete}`) so a re-run is idempotent. The
+   * triggers must go before the table: an orphaned legacy trigger left behind
+   * would fire against the freshly created table with its old column list and
+   * break every write to "contents".
+   */
+  private async dropLegacySqliteLexicalIndex(
+    queryRunner: QueryRunner,
+  ): Promise<void> {
+    const triggers = [
+      'contents_fts_after_insert',
+      'contents_fts_after_update',
+      'contents_fts_after_delete',
+      'contents_fts_insert',
+      'contents_fts_update',
+      'contents_fts_delete',
+    ];
+    for (const trigger of triggers) {
+      await queryRunner.query(`DROP TRIGGER IF EXISTS "${trigger}"`);
+    }
+    await queryRunner.query(`DROP TABLE IF EXISTS "contents_fts"`);
   }
 
   private async tryCreatePgvectorInfrastructure(
