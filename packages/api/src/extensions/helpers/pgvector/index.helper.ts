@@ -130,7 +130,28 @@ export default class PgvectorRagHelper
 
     const settings = await this.getConfiguration();
     await this.store.assertInfrastructure();
-    const embedding = await this.embedQuery(trimmed, settings);
+
+    let embedding: number[];
+    try {
+      embedding = await this.embedQuery(trimmed, settings);
+    } catch (error) {
+      // Configuration problems (missing credential, unsupported provider,
+      // invalid vector) are deterministic and need operator action, so they
+      // keep propagating. A transient provider/network failure while embedding
+      // the query (e.g. a 403, rate limit, timeout) must not hard-fail
+      // retrieval: degrade to no semantic hits so the conversation continues,
+      // mirroring the durable indexing path's "warn and move on" behavior.
+      if (error instanceof RagHelperConfigurationError) {
+        throw error;
+      }
+      this.logger.warn(
+        'Unable to embed the RAG query; returning no semantic hits for this request.',
+        error,
+      );
+
+      return [];
+    }
+
     const profile = this.getProfile(settings);
     const { rag_settings } = await this.settingService.getSettings();
     const limit = options.limit ?? rag_settings.top_k;

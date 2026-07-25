@@ -218,6 +218,21 @@ describe('PgvectorRagHelper', () => {
     );
   });
 
+  it('degrades to empty results and warns when the provider fails to embed the query', async () => {
+    const { helper, store, logger } = createHelper();
+    const providerError = Object.assign(new Error('Forbidden'), {
+      statusCode: 403,
+    });
+    (embed as jest.Mock).mockRejectedValueOnce(providerError);
+
+    await expect(helper.retrieve('query')).resolves.toEqual([]);
+    expect(store.search).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('Unable to embed the RAG query'),
+      providerError,
+    );
+  });
+
   it('rejects empty and zero vectors', async () => {
     const { helper } = createHelper();
     (embed as jest.Mock).mockResolvedValueOnce({ embedding: [] });
