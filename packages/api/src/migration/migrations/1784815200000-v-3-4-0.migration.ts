@@ -10,6 +10,10 @@ import { In, MigrationInterface, QueryRunner } from 'typeorm';
 
 import { vercelAiSdkProviders } from '@/extensions/actions/ai/provider.constants';
 import {
+  deprovisionLexicalInfrastructure,
+  provisionLexicalInfrastructure,
+} from '@/extensions/helpers/fulltext-search/fulltext.provisioning';
+import {
   PGVECTOR_CHUNKS_TABLE,
   PGVECTOR_DOCUMENTS_TABLE,
   PGVECTOR_JOBS_TABLE,
@@ -46,14 +50,13 @@ export default class Migration1784815200000_V3_4_0
     // removes it automatically, but `synchronize=false` deployments need this.
     await this.dropSearchTextIndex(queryRunner);
 
+    await provisionLexicalInfrastructure(queryRunner);
+
     if (databaseType === 'postgres') {
-      await this.createPostgresLexicalIndex(queryRunner);
       pgvectorAvailable = await this.tryCreatePgvectorInfrastructure(
         queryRunner,
         services,
       );
-    } else if (databaseType === 'better-sqlite3' || databaseType === 'sqlite') {
-      await this.createSqliteLexicalIndex(queryRunner);
     }
 
     await this.migrateSettings(
@@ -96,15 +99,9 @@ export default class Migration1784815200000_V3_4_0
       await queryRunner.query(
         `DROP TABLE IF EXISTS ${this.table(queryRunner, PGVECTOR_JOBS_TABLE)}`,
       );
-      await queryRunner.query(
-        `DROP INDEX IF EXISTS ${this.table(queryRunner, 'contents_fts_idx')}`,
-      );
-    } else if (databaseType === 'better-sqlite3' || databaseType === 'sqlite') {
-      await queryRunner.query(`DROP TRIGGER IF EXISTS "contents_fts_insert"`);
-      await queryRunner.query(`DROP TRIGGER IF EXISTS "contents_fts_update"`);
-      await queryRunner.query(`DROP TRIGGER IF EXISTS "contents_fts_delete"`);
-      await queryRunner.query(`DROP TABLE IF EXISTS "contents_fts"`);
     }
+
+    await deprovisionLexicalInfrastructure(queryRunner);
 
     if (await queryRunner.hasTable('settings')) {
       const repository = queryRunner.manager.getRepository(SettingOrmEntity);
@@ -114,16 +111,6 @@ export default class Migration1784815200000_V3_4_0
         label: 'default_rag_helper',
       });
     }
-  }
-
-  private async createPostgresLexicalIndex(
-    queryRunner: QueryRunner,
-  ): Promise<void> {
-    const contents = this.table(queryRunner, 'contents');
-    await queryRunner.query(
-      `CREATE INDEX IF NOT EXISTS "contents_fts_idx" ON ${contents} ` +
-        `USING GIN (to_tsvector('simple', COALESCE("searchText", '')))`,
-    );
   }
 
   /**
@@ -181,75 +168,6 @@ export default class Migration1784815200000_V3_4_0
         }
       }
     }
-  }
-
-  private async createSqliteLexicalIndex(
-    queryRunner: QueryRunner,
-  ): Promise<void> {
-    // The llamaindex-era RAG left a "contents_fts" FTS5 table with an
-    // incompatible schema (external-content `fts5(title, searchText,
-    // content='contents')`) plus its own AFTER triggers on "contents". A plain
-    // `CREATE VIRTUAL TABLE IF NOT EXISTS` would silently keep that legacy table
-    // — the "id" column doesn't exist there, so the backfill INSERT below and
-    // the stale triggers both fail on any DB upgraded from a llamaindex
-    // version. Drop the legacy structures (and the current ones, for
-    // idempotent re-runs) before recreating, so the table is always rebuilt
-    // with the new schema. `DROP TABLE` on an FTS5 table also removes its
-    // shadow tables (_data/_idx/_docsize/_config).
-    await this.dropLegacySqliteLexicalIndex(queryRunner);
-    await queryRunner.query(
-      `CREATE VIRTUAL TABLE IF NOT EXISTS "contents_fts" ` +
-        `USING fts5("id" UNINDEXED, "searchText", tokenize = 'unicode61')`,
-    );
-    await queryRunner.query(
-      `CREATE TRIGGER IF NOT EXISTS "contents_fts_insert" ` +
-        `AFTER INSERT ON "contents" BEGIN ` +
-        `INSERT INTO "contents_fts" ("id", "searchText") ` +
-        `VALUES (NEW."id", NEW."searchText"); END`,
-    );
-    await queryRunner.query(
-      `CREATE TRIGGER IF NOT EXISTS "contents_fts_update" ` +
-        `AFTER UPDATE OF "searchText" ON "contents" BEGIN ` +
-        `DELETE FROM "contents_fts" WHERE "id" = OLD."id"; ` +
-        `INSERT INTO "contents_fts" ("id", "searchText") ` +
-        `VALUES (NEW."id", NEW."searchText"); END`,
-    );
-    await queryRunner.query(
-      `CREATE TRIGGER IF NOT EXISTS "contents_fts_delete" ` +
-        `AFTER DELETE ON "contents" BEGIN ` +
-        `DELETE FROM "contents_fts" WHERE "id" = OLD."id"; END`,
-    );
-    await queryRunner.query(`DELETE FROM "contents_fts"`);
-    await queryRunner.query(
-      `INSERT INTO "contents_fts" ("id", "searchText") ` +
-        `SELECT "id", "searchText" FROM "contents"`,
-    );
-  }
-
-  /**
-   * Removes any pre-existing "contents_fts" full-text structures before the
-   * lexical index is rebuilt. This covers both the llamaindex-era triggers
-   * (`contents_fts_after_{insert,update,delete}`) and the current ones
-   * (`contents_fts_{insert,update,delete}`) so a re-run is idempotent. The
-   * triggers must go before the table: an orphaned legacy trigger left behind
-   * would fire against the freshly created table with its old column list and
-   * break every write to "contents".
-   */
-  private async dropLegacySqliteLexicalIndex(
-    queryRunner: QueryRunner,
-  ): Promise<void> {
-    const triggers = [
-      'contents_fts_after_insert',
-      'contents_fts_after_update',
-      'contents_fts_after_delete',
-      'contents_fts_insert',
-      'contents_fts_update',
-      'contents_fts_delete',
-    ];
-    for (const trigger of triggers) {
-      await queryRunner.query(`DROP TRIGGER IF EXISTS "${trigger}"`);
-    }
-    await queryRunner.query(`DROP TABLE IF EXISTS "contents_fts"`);
   }
 
   private async tryCreatePgvectorInfrastructure(
