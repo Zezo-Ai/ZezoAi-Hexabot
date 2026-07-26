@@ -52,7 +52,9 @@ export default class Migration1784815200000_V3_4_0
 
     await provisionLexicalInfrastructure(queryRunner);
 
-    if (databaseType === 'postgres') {
+    if (databaseType === 'better-sqlite3' || databaseType === 'sqlite') {
+      await this.dropLegacySqliteRagRemnants(queryRunner);
+    } else if (databaseType === 'postgres') {
       pgvectorAvailable = await this.tryCreatePgvectorInfrastructure(
         queryRunner,
         services,
@@ -168,6 +170,40 @@ export default class Migration1784815200000_V3_4_0
         }
       }
     }
+  }
+
+  /**
+   * Removes the dormant llamaindex-era embedding-RAG remnants left inside the
+   * SQLite database by the previous version: the `content_chunks` /
+   * `content_embeddings` storage tables, the `content_chunks_fts` FTS5 mirror,
+   * and — critically — the AFTER triggers on `contents` that keep writing into
+   * them. Those triggers survive the upgrade and fire on every content
+   * create/update/delete; worse, the old cleanup docs told operators to drop
+   * `content_chunks`, which then made every content write fail with
+   * `no such table: content_chunks`. The new RAG (fulltext-search / pgvector)
+   * uses none of these, so they are dropped outright.
+   *
+   * `DROP TABLE` on `content_chunks` also drops its own `content_chunks_fts_*`
+   * triggers, and `DROP TABLE` on the FTS5 mirror removes its shadow tables
+   * (_data/_idx/_docsize/_config). Triggers on `contents` must be dropped
+   * explicitly and before the tables. All statements use `IF EXISTS`, so this
+   * is idempotent and a no-op on databases that never ran llamaindex.
+   */
+  private async dropLegacySqliteRagRemnants(
+    queryRunner: QueryRunner,
+  ): Promise<void> {
+    const contentsTriggers = [
+      'content_chunks_after_content_insert',
+      'content_chunks_after_content_update',
+      'content_chunks_after_content_delete',
+      'content_embeddings_after_content_delete',
+    ];
+    for (const trigger of contentsTriggers) {
+      await queryRunner.query(`DROP TRIGGER IF EXISTS "${trigger}"`);
+    }
+    await queryRunner.query(`DROP TABLE IF EXISTS "content_chunks_fts"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "content_chunks"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "content_embeddings"`);
   }
 
   private async tryCreatePgvectorInfrastructure(

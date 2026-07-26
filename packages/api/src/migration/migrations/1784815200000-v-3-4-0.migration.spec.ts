@@ -207,6 +207,76 @@ describe('Migration v3.4.0', () => {
     ).toEqual([{ id: 'content-2' }]);
   });
 
+  const seedLegacyChunkRemnants = async () => {
+    // Reproduces the llamaindex-era embedding-RAG storage tables plus the AFTER
+    // triggers on "contents" that keep writing into them.
+    await queryRunner.query(
+      `CREATE TABLE "content_chunks" (` +
+        `"content_id" varchar NOT NULL, "chunk_index" integer NOT NULL, ` +
+        `"chunk_text" text NOT NULL, "content_hash" text NOT NULL, ` +
+        `"chunk_hash" text NOT NULL)`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "content_embeddings" (` +
+        `"content_id" varchar NOT NULL, "embedding" blob)`,
+    );
+    await queryRunner.query(
+      `CREATE VIRTUAL TABLE "content_chunks_fts" USING fts5(` +
+        `chunk_text, content='content_chunks', content_rowid='rowid')`,
+    );
+    await queryRunner.query(
+      `CREATE TRIGGER "content_chunks_after_content_insert" ` +
+        `AFTER INSERT ON "contents" WHEN trim(new."searchText") <> '' BEGIN ` +
+        `INSERT INTO content_chunks ` +
+        `(content_id, chunk_index, chunk_text, content_hash, chunk_hash) ` +
+        `VALUES (new.id, 0, new."searchText", '', ''); END`,
+    );
+    await queryRunner.query(
+      `CREATE TRIGGER "content_chunks_after_content_update" ` +
+        `AFTER UPDATE OF "searchText" ON "contents" BEGIN ` +
+        `DELETE FROM content_chunks WHERE content_id = new.id; END`,
+    );
+    await queryRunner.query(
+      `CREATE TRIGGER "content_chunks_after_content_delete" ` +
+        `AFTER DELETE ON "contents" BEGIN ` +
+        `DELETE FROM content_chunks WHERE content_id = old.id; END`,
+    );
+    await queryRunner.query(
+      `CREATE TRIGGER "content_embeddings_after_content_delete" ` +
+        `AFTER DELETE ON "contents" BEGIN ` +
+        `DELETE FROM content_embeddings WHERE content_id = old.id; END`,
+    );
+  };
+
+  it('drops dormant llamaindex chunk/embedding remnants on SQLite', async () => {
+    await seedLegacyChunkRemnants();
+
+    await new Migration1784815200000_V3_4_0().up(queryRunner);
+
+    // The dormant triggers on "contents" and the storage tables are gone.
+    expect(
+      await queryRunner.query(
+        `SELECT name FROM sqlite_master WHERE name IN (` +
+          `'content_chunks', 'content_embeddings', 'content_chunks_fts', ` +
+          `'content_chunks_after_content_insert', ` +
+          `'content_chunks_after_content_update', ` +
+          `'content_chunks_after_content_delete', ` +
+          `'content_embeddings_after_content_delete') ORDER BY name`,
+      ),
+    ).toEqual([]);
+
+    // A content write no longer fires a dormant trigger into a missing table.
+    // (Before the fix this threw `no such table: content_chunks`.)
+    await queryRunner.query(
+      `INSERT INTO "contents" ("id", "searchText") VALUES ('content-2', 'fresh')`,
+    );
+    expect(
+      await queryRunner.query(
+        `SELECT "id" FROM "contents" WHERE "id" = 'content-2'`,
+      ),
+    ).toEqual([{ id: 'content-2' }]);
+  });
+
   it('migrates SQLite embedding installations to lexical while preserving configuration', async () => {
     await seedLegacyEmbeddingSettings();
     await seedNewDefaults();

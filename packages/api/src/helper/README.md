@@ -35,11 +35,18 @@ selects `pgvector` only when PostgreSQL, the vector extension, and an API key
 are all available. Every other legacy installation moves safely to
 `fulltext-search`.
 
-After the new helper has been verified and the rollback window has closed,
-operators may remove the dormant LlamaIndex PostgreSQL structures (including
-`llamaindex_embedding` and its document/index-store tables) or the old
-`storage/content-rag` SQLite files. Cleanup is intentionally not automated by
-the migration.
+On **SQLite**, the previous version stored its RAG data as tables and triggers
+_inside the main database_ (`content_chunks`, `content_embeddings`, the
+`content_chunks_fts` mirror, and AFTER triggers on `contents` that wrote into
+them). The migration drops these automatically: left in place, the triggers
+fire on every content write, and dropping the tables by hand while the triggers
+remained made every content write fail with `no such table: content_chunks`.
+No manual SQLite cleanup is required.
+
+On **PostgreSQL**, the dormant LlamaIndex structures (including
+`llamaindex_embedding` and its document/index-store tables) are preserved for
+rollback and are _not_ automated away. After the new helper has been verified
+and the rollback window has closed, operators may remove them manually.
 
 ## Indexing only active content
 
