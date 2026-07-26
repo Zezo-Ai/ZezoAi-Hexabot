@@ -703,6 +703,8 @@
     "redo": "Redo",
     "run": "Run",
     "run_now": "Run now",
+    "previous_run": "Previous run",
+    "next_run": "Next run",
     "view_code_snippet": "Get code snippet",
     "generate_token": "Generate token",
     "create_workflow": "Create Workflow",
