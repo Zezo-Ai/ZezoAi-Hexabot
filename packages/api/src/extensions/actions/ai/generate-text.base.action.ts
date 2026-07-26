@@ -4,7 +4,7 @@
  * Full terms: see LICENSE.md.
  */
 
-import { ToolSet, generateText } from 'ai';
+import { generateText } from 'ai';
 
 import { ActionService } from '@/actions/actions.service';
 import { ActionMetadata, ExecArgs } from '@/actions/types';
@@ -26,64 +26,19 @@ export abstract class AiGenerateTextBaseAction<
 
   protected abstract resolvePromptInput(input: I): AiPromptInput;
 
-  async execute({
-    input,
-    settings,
-    context,
-    bindings,
-    signal,
-  }: ExecArgs<I, C, AiGenerateTextSettings>) {
-    const logger = context.services.logger;
-    const modelBinding = bindings.model;
-    const providerName = modelBinding?.settings?.provider ?? 'openai';
-    const modelId = this.resolveModelId(modelBinding);
-    const credentials = await context.services.credentials.findOneValue(
-      modelBinding?.settings?.api_key,
-    );
-    const providerOptions = this.buildProviderInitOptions(
-      providerName,
-      modelBinding,
-      credentials,
-    );
-    const provider = await this.loadProvider(providerName, providerOptions);
-    const model = this.createModel(provider, modelId);
-    const selectedMemorySlugs = this.resolveMemoryBindingSlugs(
-      context,
-      bindings.memory,
-    );
-    const promptPayload = await this.buildPrompt(
-      this.resolvePromptInput(input),
-      context,
-      selectedMemorySlugs,
-    );
-    const callSettings = this.buildCallSettings(settings);
-    const tools = (await this.buildTools(
-      context,
-      bindings.tools,
-      bindings.mcp,
-      selectedMemorySlugs,
-      signal,
-    )) as ToolSet | undefined;
-    const toolNames = [
-      ...Object.keys(bindings.tools ?? {}),
-      ...Object.keys(bindings.mcp ?? {}),
-    ];
-    const { stopWhen, stepCount, toolCall } = this.buildStopWhen(
-      settings,
+  async execute(args: ExecArgs<I, C, AiGenerateTextSettings>) {
+    const { input, signal } = args;
+    const {
+      callSettings,
+      logCall,
+      model,
+      modelId,
+      promptPayload,
+      stopWhen,
       tools,
-    );
-    logger.debug(
-      `Calling model "${modelId}" via ${this.name} action using provider "${providerName}"`,
-      {
-        provider: providerName,
-        base_url: providerOptions.baseURL,
-        tools: toolNames,
-        stop_when: {
-          step_count: stepCount,
-          tool_call: toolCall,
-        },
-      },
-    );
+    } = await this.prepareCall(this.resolvePromptInput(input), args);
+
+    logCall();
     const result = await generateText({
       ...promptPayload,
       ...callSettings,

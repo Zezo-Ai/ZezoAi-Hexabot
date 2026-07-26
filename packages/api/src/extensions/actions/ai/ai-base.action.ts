@@ -18,7 +18,7 @@ import {
 
 import { ActionService } from '@/actions/actions.service';
 import { BaseAction } from '@/actions/base-action';
-import { ActionMetadata, ActionName } from '@/actions/types';
+import { ActionMetadata, ActionName, ExecArgs } from '@/actions/types';
 import { RuntimeBindings } from '@/bindings/runtime-bindings';
 import { WorkflowRuntimeContext } from '@/workflow/contexts/workflow-runtime.context';
 import { McpToolBindingDefinitions } from '@/workflow/types';
@@ -384,6 +384,78 @@ export abstract class AiBaseAction<
     memoryBindings?: RuntimeBindings['memory'],
   ): string[] {
     return resolveMemoryBindingSlugs(context, memoryBindings);
+  }
+
+  protected async prepareCall(
+    input: AiPromptInput,
+    {
+      settings,
+      context,
+      bindings,
+      signal,
+    }: Pick<ExecArgs<I, C, S>, 'settings' | 'context' | 'bindings' | 'signal'>,
+  ) {
+    const logger = context.services.logger;
+    const modelBinding = bindings.model;
+    const providerName = modelBinding?.settings?.provider ?? 'openai';
+    const modelId = this.resolveModelId(modelBinding);
+    const credentials = await context.services.credentials.findOneValue(
+      modelBinding?.settings?.api_key,
+    );
+    const providerOptions = this.buildProviderInitOptions(
+      providerName,
+      modelBinding,
+      credentials,
+    );
+    const provider = await this.loadProvider(providerName, providerOptions);
+    const model = this.createModel(provider, modelId);
+    const selectedMemorySlugs = this.resolveMemoryBindingSlugs(
+      context,
+      bindings.memory,
+    );
+    const promptPayload = await this.buildPrompt(
+      input,
+      context,
+      selectedMemorySlugs,
+    );
+    const callSettings = this.buildCallSettings(settings);
+    const tools = await this.buildTools(
+      context,
+      bindings.tools,
+      bindings.mcp,
+      selectedMemorySlugs,
+      signal,
+    );
+    const toolNames = [
+      ...Object.keys(bindings.tools ?? {}),
+      ...Object.keys(bindings.mcp ?? {}),
+    ];
+    const { stopWhen, stepCount, toolCall } = this.buildStopWhen(
+      settings,
+      tools,
+    );
+
+    return {
+      callSettings,
+      logCall: () =>
+        logger.debug(
+          `Calling model "${modelId}" via ${this.name} action using provider "${providerName}"`,
+          {
+            provider: providerName,
+            base_url: providerOptions.baseURL,
+            tools: toolNames,
+            stop_when: {
+              step_count: stepCount,
+              tool_call: toolCall,
+            },
+          },
+        ),
+      model,
+      modelId,
+      promptPayload,
+      stopWhen,
+      tools,
+    };
   }
 
   protected buildMemoryPrompt(
