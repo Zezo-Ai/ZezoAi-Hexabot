@@ -170,7 +170,7 @@ describe('RagService (orchestrator)', () => {
       ).resolves.toBeUndefined();
     });
 
-    it('serializes concurrent reindex requests for the same helper', async () => {
+    it('coalesces a burst of concurrent reindex requests into a single run', async () => {
       let completeReindex!: () => void;
       const reindex = jest.fn(
         () =>
@@ -180,13 +180,30 @@ describe('RagService (orchestrator)', () => {
       );
       setDefaultHelper({ reindex });
 
-      const first = ragService.reindexAll();
-      const second = ragService.reindexAll();
+      // A burst of requests arriving while the first run is in flight must all
+      // share that single run rather than triggering their own.
+      const requests = Array.from({ length: 5 }, () => ragService.reindexAll());
       await new Promise((resolve) => setImmediate(resolve));
 
       expect(reindex).toHaveBeenCalledTimes(1);
+
       completeReindex();
-      await Promise.all([first, second]);
+      await Promise.all(requests);
+
+      // Every caller resolves off the one shared run.
+      expect(reindex).toHaveBeenCalledTimes(1);
+    });
+
+    it('starts a fresh run once the in-flight one has settled', async () => {
+      const reindex = jest.fn().mockResolvedValue(undefined);
+      setDefaultHelper({ reindex });
+
+      await ragService.reindexAll();
+      await ragService.reindexAll();
+
+      // The coalescing window closes when the run settles, so a later request
+      // is not deduplicated against the already-completed one.
+      expect(reindex).toHaveBeenCalledTimes(2);
     });
   });
 });
