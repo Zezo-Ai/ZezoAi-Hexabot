@@ -4,7 +4,11 @@
  * Full terms: see LICENSE.md.
  */
 
-import { EIndicatorType } from "@hexabot-ai/graph";
+import type { StepExecutionRecord } from "@hexabot-ai/agentic";
+import {
+  EIndicatorType,
+  type WorkflowExecutionStateMap,
+} from "@hexabot-ai/graph";
 
 import type {
   NodeExecutionState,
@@ -63,11 +67,39 @@ const hasLoopIterationSuffix = (stepId: string) => {
   return LOOP_ITERATION_SUFFIX_PATTERN.test(stepId);
 };
 
+export const restoreWorkflowExecutionStates = (
+  stepLog?: Record<string, StepExecutionRecord> | null,
+): WorkflowExecutionStateMap =>
+  Object.values(stepLog ?? {}).reduce<WorkflowExecutionStateMap>(
+    (states, step) => {
+      if (step.status === "pending" || step.status === "skipped") {
+        return states;
+      }
+
+      const state =
+        step.status === "failed"
+          ? "error"
+          : step.status === "completed"
+            ? "finish"
+            : step.status;
+      const key = toExecutionStepKey(step.id);
+
+      states[key] = [
+        ...(states[key] ?? []),
+        { state, t: step.endedAt ?? step.startedAt ?? 0 },
+      ];
+
+      return states;
+    },
+    {},
+  );
+
 export const mapWorkflowEventToExecutionActions = (
   event: SubscribeWorkflowProps,
 ): ExecutionStateUpdateAction[] => {
   if (event.workflowEvent === "workflow:start") {
     return [
+      { type: "clear" },
       {
         type: "append",
         key: EIndicatorType.WORKFLOW_START,
