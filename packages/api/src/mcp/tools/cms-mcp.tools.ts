@@ -4,7 +4,7 @@
  * Full terms: see LICENSE.md.
  */
 
-import { Action } from '@hexabot-ai/types';
+import { Action, contentTypeJsonSchema } from '@hexabot-ai/types';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Tool, ToolGuards } from '@rekog/mcp-nest';
 import { z } from 'zod';
@@ -78,7 +78,7 @@ export class HexabotCmsMcpTools extends HexabotMcpToolBase {
     description: 'Create a CMS content type.',
     parameters: z.object({
       name: z.string().min(1),
-      schema: jsonObjectSchema,
+      schema: contentTypeJsonSchema,
     }),
   })
   async createContentType(args: {
@@ -96,7 +96,7 @@ export class HexabotCmsMcpTools extends HexabotMcpToolBase {
     parameters: z.object({
       id: uuidSchema,
       name: z.string().min(1).optional(),
-      schema: jsonObjectSchema.optional(),
+      schema: contentTypeJsonSchema.optional(),
     }),
   })
   async updateContentType(args: { id: string } & Record<string, unknown>) {

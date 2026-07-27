@@ -21,10 +21,12 @@ import {
   attachmentSchema,
   channelMetadataSchema,
   contentFullSchema,
+  contentTypeJsonSchema,
   contentSchema,
   createWorkflowFullSchema,
   credentialFullSchema,
   credentialSchema,
+  DEFAULT_CONTENT_TYPE_SCHEMA,
   dummySchema,
   integrationHealthResponseSchema,
   messageSchema,
@@ -69,6 +71,18 @@ import {
 
 describe("@hexabot-ai/types schemas", () => {
   const now = "2026-01-01T00:00:00.000Z";
+
+  it("requires built-in content type properties", () => {
+    expect(
+      contentTypeJsonSchema.safeParse(DEFAULT_CONTENT_TYPE_SCHEMA).success,
+    ).toBe(true);
+    expect(
+      contentTypeJsonSchema.safeParse({
+        ...DEFAULT_CONTENT_TYPE_SCHEMA,
+        properties: {},
+      }).success,
+    ).toBe(false);
+  });
 
   it("never carries inline webhook secrets", () => {
     // Unknown keys (e.g. an inline secret sent by a stale client) are

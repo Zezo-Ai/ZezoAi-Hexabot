@@ -4,6 +4,8 @@
  * Full terms: see LICENSE.md.
  */
 
+import { DEFAULT_CONTENT_TYPE_SCHEMA } from '@hexabot-ai/types';
+
 import {
   contentTypeOrmFixtures,
   installContentTypeFixturesTypeOrm,
@@ -44,7 +46,7 @@ describe('ContentTypeService (TypeORM)', () => {
     it('applies default fields when none are provided', async () => {
       const payload = {
         name: 'Blog posts',
-        schema: {},
+        schema: DEFAULT_CONTENT_TYPE_SCHEMA,
       } as ContentTypeDto['actions']['create'];
       const created = await service.create(payload);
       createdIds.push(created.id);
