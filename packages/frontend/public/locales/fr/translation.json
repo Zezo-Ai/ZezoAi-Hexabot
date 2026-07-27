@@ -702,6 +702,8 @@
     "redo": "Rétablir",
     "run": "Exécuter",
     "run_now": "Exécuter maintenant",
+    "previous_run": "Exécution précédente",
+    "next_run": "Exécution suivante",
     "view_code_snippet": "Obtenir un extrait de code",
     "generate_token": "Générer un jeton",
     "create_workflow": "Créer un workflow",

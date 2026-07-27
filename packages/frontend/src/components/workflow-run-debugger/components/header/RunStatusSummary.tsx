@@ -5,8 +5,8 @@
  */
 
 import type { WorkflowRun } from "@hexabot-ai/types";
-import { Button, Stack, Typography } from "@mui/material";
-import { ChevronDown } from "lucide-react";
+import { Button, IconButton, Stack, Typography } from "@mui/material";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { MouseEvent, useMemo, useState } from "react";
 
 import { WorkflowRunStatusBadge } from "@/app-components/workflow/WorkflowRunStatusBadge";
@@ -51,9 +51,31 @@ export const RunStatusSummary = ({
     return t("placeholder.run_at", { "0": timestamp });
   }, [i18n.language, selectedRun, t, workflowRuns]);
   const durationLabel = formatDurationMs(selectedRun?.duration);
+  const selectedRunIndex = workflowRuns.findIndex(
+    ({ id }) => id === selectedRun?.id,
+  );
+  const previousRun = workflowRuns[selectedRunIndex + 1];
+  const nextRun =
+    selectedRunIndex > 0 ? workflowRuns[selectedRunIndex - 1] : undefined;
 
   return (
     <Stack direction="row" spacing={1} alignItems="center">
+      <IconButton
+        size="small"
+        aria-label={t("button.previous_run")}
+        disabled={!previousRun}
+        onClick={() => onSelectRun(previousRun.id)}
+      >
+        <ChevronLeft size={16} />
+      </IconButton>
+      <IconButton
+        size="small"
+        aria-label={t("button.next_run")}
+        disabled={!nextRun}
+        onClick={() => nextRun && onSelectRun(nextRun.id)}
+      >
+        <ChevronRight size={16} />
+      </IconButton>
       <Button
         variant="outlined"
         size="small"
