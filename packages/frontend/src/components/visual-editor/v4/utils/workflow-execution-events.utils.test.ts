@@ -18,6 +18,7 @@ import {
   isStepWorkflowEvent,
   isWorkflowEventForFlow,
   mapWorkflowEventToExecutionActions,
+  restoreWorkflowExecutionStates,
 } from "./workflow-execution-events.utils";
 
 const stepInfo = {
@@ -70,8 +71,39 @@ const workflowFinishEvent: SubscribeWorkflowProps = {
 };
 
 describe("workflow-execution-events.utils", () => {
+  it("restores persisted execution states after a refresh", () => {
+    expect(
+      restoreWorkflowExecutionStates({
+        completed: {
+          id: "0:completed",
+          name: "completed",
+          status: "completed",
+          endedAt: 100,
+        },
+        failed: {
+          id: "1:failed",
+          name: "failed",
+          status: "failed",
+          startedAt: 110,
+          endedAt: 120,
+        },
+        suspended: {
+          id: "2:await_reply[1.2]",
+          name: "await_reply",
+          status: "suspended",
+          endedAt: 130,
+        },
+      }),
+    ).toEqual({
+      "0:completed": [{ state: "finish", t: 100 }],
+      "1:failed": [{ state: "error", t: 120 }],
+      "2:await_reply": [{ state: "suspended", t: 130 }],
+    });
+  });
+
   it("maps workflow start to workflow start indicator", () => {
     expect(mapWorkflowEventToExecutionActions(workflowStartEvent)).toEqual([
+      { type: "clear" },
       {
         type: "append",
         key: EIndicatorType.WORKFLOW_START,
