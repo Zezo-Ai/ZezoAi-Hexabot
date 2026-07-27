@@ -18,6 +18,7 @@ import { AttachmentService } from '@/attachment/services/attachment.service';
 import { config } from '@/config';
 import { LoggerService } from '@/logger/logger.service';
 import { MetadataService } from '@/setting/services/metadata.service';
+import { SettingService } from '@/setting/services/setting.service';
 
 import { MigrationOrmEntity } from './migration.entity';
 import {
@@ -52,6 +53,7 @@ export class MigrationService implements OnApplicationBootstrap {
     private moduleRef: ModuleRef,
     private readonly logger: LoggerService,
     private readonly metadataService: MetadataService,
+    private readonly settingService: SettingService,
     private readonly httpService: HttpService,
     private readonly attachmentService: AttachmentService,
     @InjectDataSource()
@@ -81,6 +83,14 @@ export class MigrationService implements OnApplicationBootstrap {
         action: MigrationAction.UP,
         isAutoMigrate: true,
       });
+      // Migrations mutate settings directly through the query runner, which
+      // bypasses SettingService's cache invalidation. The settings tree is
+      // populated during bootstrap (e.g. by the setting seed) before migrations
+      // run, so without this the in-process cache keeps serving pre-migration
+      // values until the next restart — notably leaving `default_rag_helper`
+      // stale so the newly selected RAG helper's indexer never starts. Drop the
+      // cache here so post-migration reads reflect the migrated settings.
+      await this.settingService.clearCache();
     }
   }
 

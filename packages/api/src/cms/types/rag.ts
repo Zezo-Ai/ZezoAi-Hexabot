@@ -4,10 +4,15 @@
  * Full terms: see LICENSE.md.
  */
 
-export type RagMode = 'embedding' | 'lexical';
+/**
+ * Fallback number of hits a RAG helper returns when a caller does not pass an
+ * explicit `limit`. Callers that need a different count set it per request — the
+ * `retrieve_rag_content` workflow action and the CMS MCP tool both expose their
+ * own `limit` — so this is only the default for the unconfigured case.
+ */
+export const DEFAULT_RAG_TOP_K = 3;
 
 export interface RagQueryOptions {
-  mode?: RagMode;
   limit?: number;
   contentTypeId?: string;
   includeInactive?: boolean;
@@ -19,5 +24,6 @@ export interface RagHit {
   text: string;
   score?: number;
   contentTypeId?: string;
-  source: RagMode;
+  /** Name of the RAG helper that produced this hit. */
+  source: string;
 }

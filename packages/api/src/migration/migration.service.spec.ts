@@ -15,6 +15,7 @@ import { config } from '@/config';
 import { LoggerService } from '@/logger/logger.service';
 import { MetadataOrmEntity } from '@/setting/entities/metadata.entity';
 import { MetadataService } from '@/setting/services/metadata.service';
+import { SettingService } from '@/setting/services/setting.service';
 import { buildTestingMocks } from '@/utils/test/utils';
 
 import { MigrationOrmEntity } from './migration.entity';
@@ -25,6 +26,7 @@ describe('MigrationService', () => {
   let service: MigrationService;
   let loggerService: LoggerService;
   let metadataService: MetadataService;
+  let settingService: SettingService;
   let dataSource: DataSource;
   let httpService: HttpService;
   let attachmentService: AttachmentService;
@@ -93,12 +95,14 @@ describe('MigrationService', () => {
       httpService: HttpService;
       attachmentService: AttachmentService;
       metadataService: MetadataService;
+      settingService: SettingService;
     };
     loggerService = serviceInternals.logger;
     dataSource = serviceInternals.dataSource;
     httpService = serviceInternals.httpService;
     attachmentService = serviceInternals.attachmentService;
     metadataService = serviceInternals.metadataService;
+    settingService = serviceInternals.settingService;
   });
 
   afterAll(() => {
@@ -169,6 +173,9 @@ describe('MigrationService', () => {
       config.database.autoMigrate = true;
       jest.spyOn(fs, 'existsSync').mockReturnValue(true);
       jest.spyOn(service, 'run').mockResolvedValue(undefined);
+      const clearCacheSpy = jest
+        .spyOn(settingService, 'clearCache')
+        .mockResolvedValue(undefined);
       jest.spyOn(metadataService, 'findOne').mockResolvedValue({
         name: 'db-version',
         value: 'v3.0.0',
@@ -183,6 +190,25 @@ describe('MigrationService', () => {
         action: MigrationAction.UP,
         isAutoMigrate: true,
       });
+      // The in-process settings cache must be dropped after migrations run so
+      // settings mutated directly by a migration (e.g. default_rag_helper) are
+      // visible without a restart.
+      expect(clearCacheSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not clear the settings cache when autoMigrate is disabled', async () => {
+      process.env.HEXABOT_CLI = '';
+      config.database.autoMigrate = false;
+      jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+      const runSpy = jest.spyOn(service, 'run').mockResolvedValue(undefined);
+      const clearCacheSpy = jest
+        .spyOn(settingService, 'clearCache')
+        .mockResolvedValue(undefined);
+
+      await service.onApplicationBootstrap();
+
+      expect(runSpy).not.toHaveBeenCalled();
+      expect(clearCacheSpy).not.toHaveBeenCalled();
     });
   });
 
