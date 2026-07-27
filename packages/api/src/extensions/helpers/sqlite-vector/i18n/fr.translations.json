@@ -1,0 +1,14 @@
+{
+  "sqlite-vector": {
+    "Vector Search (SQLite)": "Recherche vectorielle (SQLite)",
+    "Semantic RAG backed by embeddings stored in SQLite through the sqlite-vec extension. Requires a SQLite database — on PostgreSQL, use the pgvector helper instead.": "RAG sémantique basé sur des embeddings stockés dans SQLite via l'extension sqlite-vec. Nécessite une base de données SQLite — sur PostgreSQL, utilisez plutôt l'assistant pgvector.",
+    "Provider": "Fournisseur",
+    "Embedding model": "Modèle d'embedding",
+    "Credential": "Identifiant",
+    "Embedding base URL": "URL de base des embeddings",
+    "Embedding dimensions": "Dimensions des embeddings",
+    "Chunk size": "Taille des segments",
+    "Chunk overlap": "Chevauchement des segments",
+    "Index only active content": "Indexer uniquement le contenu actif"
+  }
+}
