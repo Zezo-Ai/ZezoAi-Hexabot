@@ -5,7 +5,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import { ToolLoopAgent, ToolSet } from 'ai';
+import { ToolLoopAgent } from 'ai';
 
 import { ExecArgs } from '@/actions';
 import { ActionService } from '@/actions/actions.service';
@@ -42,52 +42,19 @@ export class AiAgentAction extends AiBaseAction<
     );
   }
 
-  async execute({
-    input,
-    settings,
-    context,
-    bindings,
-    signal,
-  }: ExecArgs<AiAgentInput, WorkflowRuntimeContext, AiAgentSettings>) {
-    const logger = context.services.logger;
-    const modelBinding = bindings.model;
-    const providerName = modelBinding?.settings?.provider ?? 'openai';
-    const modelId = this.resolveModelId(modelBinding);
-    const credentials = await context.services.credentials.findOneValue(
-      modelBinding?.settings?.api_key,
-    );
-    const providerOptions = this.buildProviderInitOptions(
-      providerName,
-      modelBinding,
-      credentials,
-    );
-    const provider = await this.loadProvider(providerName, providerOptions);
-    const model = this.createModel(provider, modelId);
-    const selectedMemorySlugs = this.resolveMemoryBindingSlugs(
-      context,
-      bindings.memory,
-    );
-    const promptPayload = await this.buildPrompt(
-      input,
-      context,
-      selectedMemorySlugs,
-    );
-    const callSettings = this.buildCallSettings(settings);
-    const tools = (await this.buildTools(
-      context,
-      bindings.tools,
-      bindings.mcp,
-      selectedMemorySlugs,
-      signal,
-    )) as ToolSet | undefined;
-    const toolNames = [
-      ...Object.keys(bindings.tools ?? {}),
-      ...Object.keys(bindings.mcp ?? {}),
-    ];
-    const { stopWhen, stepCount, toolCall } = this.buildStopWhen(
-      settings,
+  async execute(
+    args: ExecArgs<AiAgentInput, WorkflowRuntimeContext, AiAgentSettings>,
+  ) {
+    const { input, signal } = args;
+    const {
+      callSettings,
+      logCall,
+      model,
+      modelId,
+      promptPayload,
+      stopWhen,
       tools,
-    );
+    } = await this.prepareCall(input, args);
     const agent = new ToolLoopAgent({
       ...callSettings,
       ...(promptPayload.system ? { instructions: promptPayload.system } : {}),
@@ -96,18 +63,7 @@ export class AiAgentAction extends AiBaseAction<
       tools,
     });
 
-    logger.debug(
-      `Calling model "${modelId}" via ai_agent action using provider "${providerName}"`,
-      {
-        provider: providerName,
-        base_url: providerOptions.baseURL,
-        tools: toolNames,
-        stop_when: {
-          step_count: stepCount,
-          tool_call: toolCall,
-        },
-      },
-    );
+    logCall();
     const agentPrompt =
       'messages' in promptPayload
         ? promptPayload.messages
