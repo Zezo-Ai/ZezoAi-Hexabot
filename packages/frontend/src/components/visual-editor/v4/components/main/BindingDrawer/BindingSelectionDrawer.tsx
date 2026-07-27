@@ -32,9 +32,10 @@ import { useTranslate } from "@/hooks/useTranslate";
 
 import { humanizeBindingKind } from "../../../utils/binding-kind.utils";
 import {
-  createUniqueBindingName,
-  normalizeBindingName,
-} from "../../../utils/binding-name.utils";
+  createUniqueDefinitionName,
+  isDefinitionNameAvailable,
+  normalizeDefinitionName,
+} from "../../../utils/definition-name.utils";
 
 type BindingSelectionDrawerBaseProps = {
   availableBindings: string[];
@@ -423,13 +424,8 @@ export const BindingSelectionDrawer = ({
     [availableBindings, defs, disabledBindingSet],
   );
   const normalizedBindingName = useMemo(
-    () => normalizeBindingName(bindingName),
+    () => normalizeDefinitionName(bindingName),
     [bindingName],
-  );
-  const normalizedEditingBindingName = useMemo(
-    () =>
-      editingBindingName ? normalizeBindingName(editingBindingName) : undefined,
-    [editingBindingName],
   );
   const bindingNameError = useMemo(() => {
     if (!bindingName.trim()) {
@@ -447,8 +443,11 @@ export const BindingSelectionDrawer = ({
     }
 
     if (
-      Object.prototype.hasOwnProperty.call(defs ?? {}, normalizedBindingName) &&
-      normalizedBindingName !== normalizedEditingBindingName
+      !isDefinitionNameAvailable(
+        normalizedBindingName,
+        defs,
+        editingBindingName ?? undefined,
+      )
     ) {
       return t(
         "visual_editor.single_binding_drawer.form.binding_id.errors.unique",
@@ -461,7 +460,7 @@ export const BindingSelectionDrawer = ({
     defs,
     normalizedBindingLabel,
     normalizedBindingName,
-    normalizedEditingBindingName,
+    editingBindingName,
     t,
   ]);
   const defaultBindingData = useMemo(() => {
@@ -507,12 +506,7 @@ export const BindingSelectionDrawer = ({
       return;
     }
 
-    setBindingName(
-      createUniqueBindingName(
-        normalizeBindingName(bindingKind) || "binding",
-        defs,
-      ),
-    );
+    setBindingName(createUniqueDefinitionName(bindingKind, defs, "binding"));
     setBindingDescription("");
     setBindingData(defaultBindingData);
     setMode(availableBindings.length > 0 ? "select" : "create");

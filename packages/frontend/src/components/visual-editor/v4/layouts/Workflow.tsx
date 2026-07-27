@@ -72,9 +72,9 @@ import { useWorkflow } from "../hooks/useWorkflow";
 import { useWorkflowExecutionState } from "../hooks/useWorkflowExecutionState";
 import { humanizeBindingKind } from "../utils/binding-kind.utils";
 import {
-  createUniqueBindingName,
-  normalizeBindingName,
-} from "../utils/binding-name.utils";
+  createUniqueDefinitionName,
+  isDefinitionNameAvailable,
+} from "../utils/definition-name.utils";
 import {
   mountDefBindingRef,
   setDefBindingRefs,
@@ -86,10 +86,7 @@ import {
   getDisabledBindingRefs,
   isNonToolBindingKind,
 } from "../utils/workflow-binding-routing.utils";
-import {
-  createBaseDefinition,
-  createTaskName,
-} from "../utils/workflow-definition.utils";
+import { createBaseDefinition } from "../utils/workflow-definition.utils";
 import { uniqueIssueLocations } from "../utils/workflow-issue-locations";
 import "./workflow-layout.css";
 
@@ -136,7 +133,6 @@ export const Workflow = () => {
     updateWorkflow,
     updateWorkflowURL,
     definition,
-    taskDefinitions,
     flow,
     definitionStatus,
     definitionIssues,
@@ -313,9 +309,10 @@ export const Workflow = () => {
           return;
         }
 
-        const nextToolName = createUniqueBindingName(
-          normalizeBindingName(action.name) || "tool",
+        const nextToolName = createUniqueDefinitionName(
+          action.name,
           definition.defs,
+          "tool",
         );
         const toolSettingsDefaults = (getSchemaDefaults<
           Record<string, JsonValue>
@@ -340,10 +337,10 @@ export const Workflow = () => {
       }
 
       const baseDefinition = definition ?? createBaseDefinition();
-      const nextTaskName = createTaskName(
+      const nextTaskName = createUniqueDefinitionName(
         action.name,
         baseDefinition.defs ?? {},
-        taskDefinitions,
+        "new_task",
       );
 
       setPendingActionCreateTarget({
@@ -362,13 +359,7 @@ export const Workflow = () => {
       setPendingBindingAdd(null);
       setEditingBindingTarget(null);
     },
-    [
-      definition,
-      pendingInsertPath,
-      pendingToolBindingAdd,
-      setGraphSelection,
-      taskDefinitions,
-    ],
+    [definition, pendingInsertPath, pendingToolBindingAdd, setGraphSelection],
   );
 
   useEffect(() => {
@@ -634,9 +625,7 @@ export const Workflow = () => {
         return;
       }
 
-      if (
-        Object.prototype.hasOwnProperty.call(definition.defs ?? {}, bindingName)
-      ) {
+      if (!isDefinitionNameAvailable(bindingName, definition.defs)) {
         return;
       }
 
@@ -708,8 +697,11 @@ export const Workflow = () => {
       }
 
       if (
-        currentBindingName !== nextBindingName &&
-        Object.prototype.hasOwnProperty.call(currentDefs, nextBindingName)
+        !isDefinitionNameAvailable(
+          nextBindingName,
+          currentDefs,
+          currentBindingName,
+        )
       ) {
         return;
       }

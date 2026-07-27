@@ -10,6 +10,7 @@ import {
   type WorkflowDefinition,
 } from "@hexabot-ai/agentic";
 
+import { isDefinitionNameAvailable } from "./definition-name.utils";
 import {
   mountDefBindingRef,
   setDefBindingRefs,
@@ -81,7 +82,7 @@ export const createToolBindingDefinitionMutation = (
 
   const currentDefs = definition.defs ?? {};
 
-  if (Object.prototype.hasOwnProperty.call(currentDefs, bindingName)) {
+  if (!isDefinitionNameAvailable(bindingName, currentDefs)) {
     return definition;
   }
 
@@ -139,8 +140,7 @@ export const updateToolBindingDefinitionMutation = (
   }
 
   if (
-    currentBindingName !== nextBindingName &&
-    Object.prototype.hasOwnProperty.call(currentDefs, nextBindingName)
+    !isDefinitionNameAvailable(nextBindingName, currentDefs, currentBindingName)
   ) {
     return definition;
   }
