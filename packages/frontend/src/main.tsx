@@ -58,7 +58,7 @@ if (!rootElement) {
 }
 
 ReactDOM.createRoot(rootElement).render(
-  <BrowserRouter>
+  <BrowserRouter useTransitions={false}>
     <ConfigProvider>
       <AppTheme>
         <CssBaseline enableColorScheme />
