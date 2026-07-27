@@ -22,7 +22,7 @@ import {
   RagHelperConfigurationError,
   RagHelperUnavailableError,
 } from '@/cms/errors/rag.errors';
-import { RagHit, RagQueryOptions } from '@/cms/types/rag';
+import { DEFAULT_RAG_TOP_K, RagHit, RagQueryOptions } from '@/cms/types/rag';
 import { BaseRagHelper } from '@/helper/lib/base-rag-helper';
 import { HelperType } from '@/helper/types';
 import { CredentialService } from '@/user/services/credential.service';
@@ -153,8 +153,7 @@ export default class PgvectorRagHelper
     }
 
     const profile = this.getProfile(settings);
-    const { rag_settings } = await this.settingService.getSettings();
-    const limit = options.limit ?? rag_settings.top_k;
+    const limit = options.limit ?? DEFAULT_RAG_TOP_K;
     const hits = await this.store.search(embedding, profile, {
       status: options.includeInactive ? undefined : true,
       contentTypeId: options.contentTypeId,

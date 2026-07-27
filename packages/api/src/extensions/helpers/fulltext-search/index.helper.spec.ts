@@ -24,9 +24,6 @@ describe('FullTextSearchRagHelper', () => {
     };
     helper = new FullTextSearchRagHelper({} as DataSource);
     (helper as unknown as { store: unknown }).store = store;
-    (helper as unknown as { settingService: unknown }).settingService = {
-      getSettings: jest.fn().mockResolvedValue({ rag_settings: { top_k: 3 } }),
-    };
   });
 
   it('exposes the expected helper name', () => {

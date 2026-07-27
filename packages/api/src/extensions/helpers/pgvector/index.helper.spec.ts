@@ -34,9 +34,6 @@ const validSettings = {
     chunk_size: 2000,
     chunk_overlap: 200,
   },
-  rag_settings: {
-    top_k: 3,
-  },
 };
 const createHelper = (type: 'postgres' | 'better-sqlite3' = 'postgres') => {
   const credentialService = {

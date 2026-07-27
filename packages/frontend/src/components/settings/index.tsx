@@ -6,6 +6,7 @@
 
 import type { Setting } from "@hexabot-ai/types";
 import {
+  Alert,
   FormControl,
   Paper,
   styled,
@@ -150,14 +151,10 @@ export const Settings = () => {
     () => toSettingsByGroupAndLabel(settings),
     [settings],
   );
-  const groups = useMemo(() => {
-    const schemaGroups = Object.keys(schemas || {});
-    const extraGroups = Object.keys(groupedSettings).filter(
-      (group) => !schemaGroups.includes(group),
-    );
-
-    return schemaGroups.concat(extraGroups);
-  }, [groupedSettings, schemas]);
+  // Only groups with a registered schema are shown. A settings row whose group
+  // has no schema (e.g. legacy/orphaned data left behind by an upgrade) cannot
+  // render a form, so surfacing it as an empty tab is noise, not information.
+  const groups = useMemo(() => Object.keys(schemas || {}), [schemas]);
   const activeTab = useMemo(() => {
     const fallback = DEFAULT_SETTINGS_GROUP;
 
@@ -243,6 +240,10 @@ export const Settings = () => {
               {groups.map((groupName) => {
                 const definition = schemas[groupName];
                 const schema = definition?.schema as RJSFSchema | undefined;
+                const groupDescription =
+                  typeof schema?.description === "string"
+                    ? schema.description.trim()
+                    : "";
 
                 return (
                   <TabPanel
@@ -256,20 +257,25 @@ export const Settings = () => {
                         {t("message.no_settings_schema")}
                       </Typography>
                     ) : (
-                      <FormControl>
-                        <JsonSchemaForm<Record<string, SettingValue>>
-                          schema={schema}
-                          formData={formDataByGroup[groupName] || {}}
-                          onFormDataChange={(data, errors) => {
-                            if (!errors?.length) {
-                              handleFormDataChange(groupName, data);
-                            }
-                          }}
-                          uiSchema={buildPanelUiSchema(schema)}
-                          enableJsonataTextWidget={false}
-                          idPrefix={`settings-${groupName}`}
-                        />
-                      </FormControl>
+                      <>
+                        {groupDescription ? (
+                          <Alert severity="info">{groupDescription}</Alert>
+                        ) : null}
+                        <FormControl>
+                          <JsonSchemaForm<Record<string, SettingValue>>
+                            schema={schema}
+                            formData={formDataByGroup[groupName] || {}}
+                            onFormDataChange={(data, errors) => {
+                              if (!errors?.length) {
+                                handleFormDataChange(groupName, data);
+                              }
+                            }}
+                            uiSchema={buildPanelUiSchema(schema)}
+                            enableJsonataTextWidget={false}
+                            idPrefix={`settings-${groupName}`}
+                          />
+                        </FormControl>
+                      </>
                     )}
                   </TabPanel>
                 );

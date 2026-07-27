@@ -11,8 +11,6 @@ import { RuntimeSettingGroupSchema } from '@/setting/runtime-settings';
 
 export const GLOBAL_SETTINGS_GROUP = 'global_settings' as const;
 
-export const RAG_SETTINGS_GROUP = 'rag_settings' as const;
-
 export const CONTACT_SETTINGS_GROUP = 'contact' as const;
 
 export const globalSettingsSchema = z
@@ -53,27 +51,6 @@ export const globalSettingsSchema = z
   })
   .meta({
     title: 'Global settings',
-  });
-
-export const ragSettingsSchema = z
-  .strictObject({
-    top_k: z
-      .number()
-      .int()
-      .min(1)
-      .max(50)
-      .default(3)
-      .meta({
-        title: 'Top K results',
-        description:
-          'Maximum number of retrieved content hits returned per query.',
-        'ui:options': {
-          step: 1,
-        },
-      }),
-  })
-  .meta({
-    title: 'RAG',
   });
 
 export const contactSettingsSchema = z
@@ -126,7 +103,6 @@ export const contactSettingsSchema = z
 declare global {
   interface RuntimeSettingRegistry {
     [GLOBAL_SETTINGS_GROUP]: typeof globalSettingsSchema;
-    [RAG_SETTINGS_GROUP]: typeof ragSettingsSchema;
     [CONTACT_SETTINGS_GROUP]: typeof contactSettingsSchema;
   }
 }
@@ -134,12 +110,6 @@ declare global {
 export const GlobalSettingsGroup = createSettingGroup({
   group: GLOBAL_SETTINGS_GROUP,
   schema: globalSettingsSchema,
-  scope: 'global',
-});
-
-export const RagSettingsGroup = createSettingGroup({
-  group: RAG_SETTINGS_GROUP,
-  schema: ragSettingsSchema,
   scope: 'global',
 });
 
@@ -153,10 +123,6 @@ export const DEFAULT_GLOBAL_SETTING_SCHEMAS = [
   {
     group: GLOBAL_SETTINGS_GROUP,
     schema: globalSettingsSchema,
-  },
-  {
-    group: RAG_SETTINGS_GROUP,
-    schema: ragSettingsSchema,
   },
   {
     group: CONTACT_SETTINGS_GROUP,

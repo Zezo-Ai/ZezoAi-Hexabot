@@ -110,7 +110,9 @@ export const pgvectorSettingsSchema = z
     }
   })
   .meta({
-    title: 'pgvector RAG',
+    title: 'Vector Search (pgvector)',
+    description:
+      'Semantic RAG backed by embeddings stored in pgvector. Requires a PostgreSQL database with the pgvector extension — not available on SQLite.',
   });
 
 declare global {

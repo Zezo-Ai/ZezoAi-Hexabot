@@ -7,7 +7,7 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
-import { RagHit, RagQueryOptions } from '@/cms/types/rag';
+import { DEFAULT_RAG_TOP_K, RagHit, RagQueryOptions } from '@/cms/types/rag';
 import { BaseRagHelper } from '@/helper/lib/base-rag-helper';
 
 import { FullTextSearchStore } from './fulltext-search.store';
@@ -40,7 +40,7 @@ export default class FullTextSearchRagHelper extends BaseRagHelper<
   /**
    * Retrieves the most relevant content for a query using native full-text
    * search. Defaults to active content only unless `includeInactive` is set,
-   * and to `rag_settings.top_k` results unless a `limit` is provided.
+   * and to `DEFAULT_RAG_TOP_K` results unless a `limit` is provided.
    */
   async retrieve(
     query: string,
@@ -51,8 +51,7 @@ export default class FullTextSearchRagHelper extends BaseRagHelper<
       return [];
     }
 
-    const { rag_settings } = await this.settingService.getSettings();
-    const limit = options.limit ?? rag_settings.top_k;
+    const limit = options.limit ?? DEFAULT_RAG_TOP_K;
     const hits = await this.store.search(trimmed, {
       status: options.includeInactive ? undefined : true,
       contentTypeId: options.contentTypeId,
