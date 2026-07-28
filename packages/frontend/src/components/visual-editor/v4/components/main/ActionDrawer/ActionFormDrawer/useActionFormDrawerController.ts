@@ -31,6 +31,7 @@ import validator from "@/utils/rjsf-zod-validator";
 
 import { useWorkflow } from "../../../../hooks/useWorkflow";
 import { useSelectedActionNode } from "../../../../hooks/useWorkflowSelection";
+import { isDefinitionNameAvailable } from "../../../../utils/definition-name.utils";
 import { createBaseDefinition } from "../../../../utils/workflow-definition.utils";
 import { useStepDrawerClose } from "../../StepDrawer/withStepDrawerLayout";
 
@@ -204,7 +205,7 @@ export const useActionFormDrawerController = ({
     taskName,
     taskDescription:
       target?.initialTaskDescription ?? taskDefinition?.description,
-    tasks: taskDefinitions,
+    definitions: definition?.defs,
   });
   const handleSaveClose = useStepDrawerClose(() => {
     onClose?.("save");
@@ -374,7 +375,7 @@ export const useActionFormDrawerController = ({
     const hasSettingValues = Object.keys(nextSettingsData).length > 0;
 
     if (isCreateMode && target) {
-      if (Object.prototype.hasOwnProperty.call(taskDefinitions, nextTaskName)) {
+      if (!isDefinitionNameAvailable(nextTaskName, currentDefinition.defs)) {
         return;
       }
 
@@ -423,8 +424,7 @@ export const useActionFormDrawerController = ({
     }
 
     if (
-      nextTaskName !== taskName &&
-      Object.prototype.hasOwnProperty.call(taskDefinitions, nextTaskName)
+      !isDefinitionNameAvailable(nextTaskName, currentDefinition.defs, taskName)
     ) {
       return;
     }
@@ -498,10 +498,7 @@ export const useActionFormDrawerController = ({
     (isCreateMode
       ? !target ||
         !normalizedTaskName ||
-        Object.prototype.hasOwnProperty.call(
-          taskDefinitions,
-          normalizedTaskName,
-        )
+        !isDefinitionNameAvailable(normalizedTaskName, definition?.defs)
       : !selectedActionNode || !taskDefinition);
 
   return {

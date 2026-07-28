@@ -42,10 +42,8 @@ import type { EntityAttributes } from "@/types/base.types";
 import { WorkflowContext } from "../contexts/workflow.context";
 import { useWorkflowDefinitionState } from "../hooks/useWorkflowDefinitionState";
 import type { WorkflowContextProps } from "../types/workflow.types";
-import {
-  createBaseDefinition,
-  createTaskName,
-} from "../utils/workflow-definition.utils";
+import { createUniqueDefinitionName } from "../utils/definition-name.utils";
+import { createBaseDefinition } from "../utils/workflow-definition.utils";
 
 type TaskInputs = NonNullable<TaskDefinition["inputs"]>;
 type TaskSettings = NonNullable<TaskDefinition["settings"]>;
@@ -120,10 +118,10 @@ export const WorkflowProvider: React.FC<WorkflowContextProps> = ({
   const addActionStep = useCallback(
     (action: IAction, insertPath?: FlowStepPath | null) => {
       const baseDefinition = definition ?? createBaseDefinition();
-      const nextTaskName = createTaskName(
+      const nextTaskName = createUniqueDefinitionName(
         action.name,
         baseDefinition.defs ?? {},
-        taskDefinitions,
+        "new_task",
       );
       const taskDescription = action.description?.trim();
       const inputDefaults = getSchemaDefaults<TaskInputs>(action.inputSchema);
@@ -165,7 +163,7 @@ export const WorkflowProvider: React.FC<WorkflowContextProps> = ({
 
       updateDefinitionState(nextDefinition);
     },
-    [definition, taskDefinitions, updateDefinitionState],
+    [definition, updateDefinitionState],
   );
   const addConditionalStep = useCallback(
     (insertPath?: FlowStepPath | null) => {
