@@ -15,6 +15,7 @@ import {
   ColumnActionType,
   useActionColumns,
 } from "@/app-components/tables/columns/getColumns";
+import { useTimestampColumns } from "@/app-components/tables/columns/useTimestampColumns";
 import { GenericDataGrid } from "@/app-components/tables/GenericDataGrid";
 import { type Filter } from "@/app-components/tables/GenericFilters";
 import { WorkflowBadgeWithTitle } from "@/app-components/workflow/WorkflowBadgeWithTitle";
@@ -28,7 +29,9 @@ import { useAppRouter } from "@/hooks/useAppRouter";
 import { useQueryState } from "@/hooks/useQueryState";
 import { useTranslate } from "@/hooks/useTranslate";
 import { EntityType, Format } from "@/services/types";
-import { formatDurationMs, getDateTimeFormatter } from "@/utils/date";
+import { formatDurationMs } from "@/utils/date";
+
+const TIMESTAMP_HEADERS = { createdAt: "label.triggered_at" } as const;
 
 export const WorkflowRuns = ({
   hidedColumns = [],
@@ -52,20 +55,15 @@ export const WorkflowRuns = ({
     ],
     t("label.operations"),
   );
+  const timestampColumns = useTimestampColumns<WorkflowRunFull>(
+    "createdAt",
+    TIMESTAMP_HEADERS,
+  );
   const columns = useMemo(
     () =>
       [
-        { field: "id", headerName: "ID", width: 100 },
-        {
-          minWidth: 140,
-          field: "createdAt",
-          headerName: t("label.triggered_at"),
-          disableColumnMenu: true,
-          resizable: false,
-          headerAlign: "left",
-          valueGetter: (value) =>
-            t("datetime.created_at", getDateTimeFormatter(value)),
-        },
+        { field: "id", headerName: "ID" },
+        ...timestampColumns,
         {
           flex: 1,
           minWidth: 200,
@@ -112,7 +110,7 @@ export const WorkflowRuns = ({
           },
         },
         {
-          maxWidth: 120,
+          minWidth: 140,
           field: "status",
           headerName: t("label.status"),
           disableColumnMenu: true,
@@ -124,7 +122,7 @@ export const WorkflowRuns = ({
           ),
         },
         {
-          maxWidth: 100,
+          minWidth: 120,
           field: "duration",
           headerName: t("label.duration"),
           sortable: false,
@@ -144,7 +142,7 @@ export const WorkflowRuns = ({
         },
         actionColumns,
       ] satisfies GridColDef<WorkflowRunFull>[],
-    [t],
+    [t, timestampColumns],
   );
   const [name, setName] = useQueryState("name");
   const [subscriber, setSubscriber] = useQueryState("subscriber");

@@ -12,14 +12,18 @@ import {
   GridValidRowModel,
   DataGrid as MuiDataGrid,
 } from "@mui/x-data-grid";
+import { useMemo } from "react";
 
 import { styledPaginationSlots } from "./DataGridStyledPagination";
 import { ErrorOverlay } from "./ErrorOverlay";
 import { NoDataOverlay } from "./NoDataOverlay";
 
+const DEFAULT_COLUMN_MIN_WIDTH = 100;
+const EMPTY_ROWS: never[] = [];
+
 export const DataGrid = <T extends GridValidRowModel = any>({
   columns,
-  rows = [],
+  rows = EMPTY_ROWS,
   disableRowSelectionOnClick = true,
   slots,
   showCellVerticalBorder = false,
@@ -27,22 +31,37 @@ export const DataGrid = <T extends GridValidRowModel = any>({
   error,
   ...rest
 }: DataGridProps<T> & { error?: boolean }) => {
-  const styledColumns: GridColDef<T>[] = columns.map((col) => ({
-    disableColumnMenu: true,
-    headerAlign: "left",
-    flex: 1,
-    ...col,
-  }));
-  const normalizedSlots =
-    slots ||
-    ({
-      noRowsOverlay: error ? ErrorOverlay : NoDataOverlay,
-      noResultsOverlay: error ? ErrorOverlay : NoDataOverlay,
-      ...styledPaginationSlots,
-    } as Partial<GridSlotsComponent> | undefined);
+  const styledColumns = useMemo<GridColDef<T>[]>(
+    () =>
+      columns.map((col) => ({
+        disableColumnMenu: true,
+        headerAlign: "left",
+        ...(col.width
+          ? { flex: 0 }
+          : {
+              flex: 1,
+              minWidth: Math.min(
+                DEFAULT_COLUMN_MIN_WIDTH,
+                col.maxWidth ?? Infinity,
+              ),
+            }),
+        ...col,
+      })),
+    [columns],
+  );
+  const normalizedSlots = useMemo(
+    () =>
+      slots ||
+      ({
+        noRowsOverlay: error ? ErrorOverlay : NoDataOverlay,
+        noResultsOverlay: error ? ErrorOverlay : NoDataOverlay,
+        ...styledPaginationSlots,
+      } as Partial<GridSlotsComponent> | undefined),
+    [slots, error],
+  );
 
   return (
-    <Grid size={12}>
+    <Grid size={12} minWidth={0}>
       <MuiDataGrid<T>
         disableRowSelectionOnClick={disableRowSelectionOnClick}
         slots={normalizedSlots}
