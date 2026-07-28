@@ -5,9 +5,13 @@
  */
 
 export {
+  CONTENT_TYPE_READ_ONLY_PROPERTY_KEYS,
   contentTypeFullSchema,
+  contentTypeJsonSchema,
   contentTypeSchema,
   contentTypeStubSchema,
+  DEFAULT_CONTENT_TYPE_SCHEMA,
+  withDefaultContentTypeProperties,
   type ContentType,
   type ContentTypeFull,
   type ContentTypeStub,

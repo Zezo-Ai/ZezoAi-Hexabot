@@ -4,11 +4,14 @@
  * Full terms: see LICENSE.md.
  */
 
-import { contentTypeFullSchema, contentTypeSchema } from '@hexabot-ai/types';
+import {
+  contentTypeFullSchema,
+  contentTypeJsonSchema,
+  contentTypeSchema,
+} from '@hexabot-ai/types';
 import { ApiProperty, PartialType } from '@nestjs/swagger';
 import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
 import { JSONSchema7 as JsonSchema } from 'json-schema';
-import { z } from 'zod';
 
 import { FieldType } from '@/setting/types';
 import { Validate } from '@/utils/decorators/validate.decorator';
@@ -42,7 +45,7 @@ export class ContentTypeCreateDto {
     description: 'JSON Schema describing the content structure',
     type: Object,
   })
-  @Validate(z.looseObject({}))
+  @Validate(contentTypeJsonSchema)
   schema!: JsonSchema;
 }
 
