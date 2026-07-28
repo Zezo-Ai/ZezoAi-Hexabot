@@ -8,6 +8,7 @@ import type { WorkflowEventMap } from '@hexabot-ai/agentic';
 import { WorkflowFull, Workflow } from '@hexabot-ai/types';
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -63,6 +64,23 @@ export class WorkflowService extends BaseOrmService<WorkflowOrmEntity> {
     private readonly workflowRunService: WorkflowRunService,
   ) {
     super(repository);
+  }
+
+  /**
+   * Create a workflow and expose name collisions as an HTTP conflict.
+   */
+  override async create(
+    payload: InferCreateDto<WorkflowOrmEntity>,
+  ): Promise<Workflow> {
+    const existing = await this.findOne({
+      where: { name: payload.name },
+    });
+
+    if (existing) {
+      throw new ConflictException(`Workflow "${payload.name}" already exists`);
+    }
+
+    return await super.create(payload);
   }
 
   /**
