@@ -186,6 +186,7 @@ export const ContentTypeEntity = new schema.Entity(
   undefined,
   {
     idAttribute: ({ id }) => id,
+    processStrategy: processCommonStrategy,
   },
 );
 
