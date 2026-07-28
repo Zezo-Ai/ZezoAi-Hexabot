@@ -163,7 +163,26 @@
     "workflow_type_manual_trigger": "Triggered via API or manual calls.",
     "workflow_type_manual_schema_editability": "You can edit input schema. You define the input schema.",
     "workflow_type_scheduled_trigger": "Triggered on a schedule.",
-    "workflow_type_scheduled_schema_editability": "You can't edit input schema. Input is system-defined."
+    "workflow_type_scheduled_schema_editability": "You can't edit input schema. Input is system-defined.",
+    "page_description": {
+      "memory_definition": "Define reusable workflow memory structures.",
+      "content_type": "Define structures for reusable content.",
+      "content": "Manage entries for this content type.",
+      "attachment": "Browse and manage uploaded media.",
+      "language": "Manage supported languages and locales.",
+      "translation": "Manage localized interface content.",
+      "label": "Organize subscribers with reusable labels.",
+      "subscriber": "View and manage your audience.",
+      "user": "Manage users and account access.",
+      "role": "Manage roles and access permissions.",
+      "credential": "Manage organization keys and tokens.",
+      "source": "Configure channels connected to your bot.",
+      "audit_log": "Review administrative activity and system changes.",
+      "workflow_run": "Monitor workflow execution history.",
+      "mcp_server": "Configure external MCP server connections.",
+      "menu": "Manage persistent chatbot menu items.",
+      "setting": "Configure application and service settings."
+    }
   },
   "menu": {
     "logout": "Logout",
@@ -716,6 +735,7 @@
     "unpublish": "Unpublish",
     "submit": "Submit",
     "cancel": "Cancel",
+    "filters": "Filters",
     "add": "Add",
     "add_option": "Add option",
     "add_property": "Add property",

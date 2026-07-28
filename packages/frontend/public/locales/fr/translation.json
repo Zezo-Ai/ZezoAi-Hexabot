@@ -162,7 +162,26 @@
     "workflow_type_manual_trigger": "Déclenché via API ou des appels manuels.",
     "workflow_type_manual_schema_editability": "Vous pouvez modifier le schéma d'entrée. Vous définissez le schéma d'entrée.",
     "workflow_type_scheduled_trigger": "Déclenché selon une planification.",
-    "workflow_type_scheduled_schema_editability": "Vous ne pouvez pas modifier le schéma d'entrée. L'entrée est définie par le système."
+    "workflow_type_scheduled_schema_editability": "Vous ne pouvez pas modifier le schéma d'entrée. L'entrée est définie par le système.",
+    "page_description": {
+      "memory_definition": "Définissez les structures de mémoire des workflows.",
+      "content_type": "Définissez des structures de contenu réutilisables.",
+      "content": "Gérez les entrées de ce type de contenu.",
+      "attachment": "Parcourez et gérez les médias importés.",
+      "language": "Gérez les langues et paramètres régionaux.",
+      "translation": "Gérez les contenus localisés de l’interface.",
+      "label": "Organisez les abonnés avec des étiquettes.",
+      "subscriber": "Consultez et gérez votre audience.",
+      "user": "Gérez les utilisateurs et leurs accès.",
+      "role": "Gérez les rôles et les permissions d’accès.",
+      "credential": "Gérez les clés et jetons de l’organisation.",
+      "source": "Configurez les canaux connectés à votre bot.",
+      "audit_log": "Consultez l’activité administrative et les modifications système.",
+      "workflow_run": "Suivez l’historique d’exécution des workflows.",
+      "mcp_server": "Configurez les connexions aux serveurs MCP externes.",
+      "menu": "Gérez les éléments du menu persistant.",
+      "setting": "Configurez les paramètres de l’application et des services."
+    }
   },
   "menu": {
     "logout": "Déconnexion",
@@ -715,6 +734,7 @@
     "unpublish": "Dépublier",
     "submit": "Valider",
     "cancel": "Annuler",
+    "filters": "Filtres",
     "add": "Ajouter",
     "add_option": "Ajouter une option",
     "add_property": "Ajouter une propriété",

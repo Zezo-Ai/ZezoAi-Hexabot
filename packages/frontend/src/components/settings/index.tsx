@@ -210,7 +210,11 @@ export const Settings = () => {
 
   return (
     <Grid container gap={3} flexDirection="column">
-      <PageHeader icon={SettingsIcon} title={t("title.settings")} />
+      <PageHeader
+        icon={SettingsIcon}
+        title={t("title.settings")}
+        description={t("message.page_description.setting")}
+      />
       <LicenseActivatedModal
         open={isLicenseModalOpen}
         onClose={() => setIsLicenseModalOpen(false)}

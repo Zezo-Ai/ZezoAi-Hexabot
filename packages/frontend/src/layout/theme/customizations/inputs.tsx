@@ -404,6 +404,7 @@ export const inputsCustomizations: Components<Theme> = {
         [`&.${outlinedInputClasses.focused}:not(.${inputBaseClasses.disabled}):not(.${inputBaseClasses.readOnly}) .${outlinedInputClasses.notchedOutline}`]:
           {
             borderColor: brand[400],
+            borderWidth: 2,
           },
         [`&.${outlinedInputClasses.focused}.${inputBaseClasses.readOnly} .${outlinedInputClasses.notchedOutline}`]:
           {

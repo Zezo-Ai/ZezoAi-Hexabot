@@ -58,7 +58,11 @@ const UsersLockedView = () => {
 
   return (
     <Stack gap={3}>
-      <PageHeader icon={UsersIcon} title={t("title.users")} />
+      <PageHeader
+        icon={UsersIcon}
+        title={t("title.users")}
+        description={t("message.page_description.user")}
+      />
       <Paper variant="spaced">
         <Stack spacing={2.5} sx={{ maxWidth: 760 }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
