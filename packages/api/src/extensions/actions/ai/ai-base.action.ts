@@ -135,11 +135,17 @@ export abstract class AiBaseAction<
       return createGatewayProvider(options);
     }
 
-    if (providerId === 'litellm') {
+    if (providerId === 'litellm' || providerId === 'openai-compatible') {
+      if (!options.baseURL) {
+        throw new Error(
+          `No base URL provided for provider "${provider}". Set bindings.model.<def>.settings.base_url.`,
+        );
+      }
+
       return createOpenAICompatible({
         ...options,
-        name: 'litellm',
-        baseURL: options.baseURL || '',
+        name: providerId,
+        baseURL: options.baseURL,
       });
     }
 
