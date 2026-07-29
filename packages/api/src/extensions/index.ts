@@ -26,6 +26,10 @@ export * from './helpers/pgvector/index.helper';
 
 export * from './helpers/pgvector/pgvector.settings';
 
+export * from './helpers/sqlite-vector/index.helper';
+
+export * from './helpers/sqlite-vector/sqlite-vector.settings';
+
 export * from './actions/ai/ai-prompt.helpers';
 
 export * from './actions/ai/ai-schemas';

@@ -1,6 +1,6 @@
 # RAG helpers
 
-Hexabot ships with two database-owned RAG helpers:
+Hexabot ships with three database-owned RAG helpers:
 
 - `fulltext-search` is the default. PostgreSQL uses a GIN expression index over
   the canonical `contents.searchText`; SQLite uses an FTS5 table maintained by
@@ -9,6 +9,9 @@ Hexabot ships with two database-owned RAG helpers:
   OpenAI-compatible embedding endpoint, and stores exact-search vectors in
   PostgreSQL. A trigger-backed, leased work queue makes indexing durable across
   API restarts and supports multiple API nodes.
+- `sqlite-vector` is SQLite-only. It uses the same chunking and embedding
+  settings, stores vectors through sqlite-vec, and indexes directly from CMS
+  lifecycle hooks.
 
 The selected helper is controlled by
 `global_settings.default_rag_helper`. RAG retrieval is always available through
@@ -18,6 +21,15 @@ that helper; there is no feature enable/disable switch.
 
 A custom RAG helper must extend `BaseRagHelper` and implement `retrieve`.
 `index`, `remove`, and `reindex` are optional.
+
+A helper that builds its index from an external embedding provider should
+extend `BaseRagEmbeddingHelper` instead. It carries the chunking
+(`chunkSearchText`), provider resolution, query/chunk embedding, vector
+validation, and the profile hash that keys stored vectors to the configuration
+that produced them. All of it is shared for one reason: two helpers that
+disagreed on any of it would produce indexes that cannot be compared or
+migrated between. `pgvector` and `sqlite-vector` both build on it and differ
+only in storage and lifecycle strategy.
 
 The CMS lifecycle hooks forwarded to `index` and `remove` are best-effort
 latency signals. They are not durable change capture: a process failure after
@@ -50,15 +62,12 @@ and the rollback window has closed, operators may remove them manually.
 
 ## Indexing only active content
 
-The `pgvector` helper exposes an `index_only_active_content` setting (default
-`true`). When enabled, inactive (unpublished) content is never sent to the
-embedding provider and is kept out of the vector index: the queue worker drops
-any embeddings for a row it finds inactive, the content trigger fires on
-`status` changes so publishing/unpublishing reconciles automatically, and
-toggling the setting re-evaluates the whole corpus. The v3.4.0 migration carries
-the legacy `rag_settings.index_only_active_content` value over to the helper.
-When disabled, all content is embedded regardless of status (retrieval still
-filters inactive rows out of results).
+Both vector helpers expose `index_only_active_content` (default `true`). When
+enabled, inactive content is not embedded and is removed from the vector index.
+Pgvector reconciles through its durable queue; sqlite-vector updates directly
+from CMS lifecycle hooks. Toggling the setting reindexes the corpus. When
+disabled, all content is embedded, while retrieval still excludes inactive
+content unless explicitly requested.
 
 ## Testing
 
@@ -67,6 +76,9 @@ Unit tests run against the default SQLite config:
 ```sh
 pnpm --filter @hexabot-ai/api test
 ```
+
+The sqlite-vector integration suite runs in normal CI when the sqlite-vec
+binary is available.
 
 The `pgvector` helper also has an integration suite
 (`pgvector.integration.spec.ts`) that exercises the real provisioning DDL,
