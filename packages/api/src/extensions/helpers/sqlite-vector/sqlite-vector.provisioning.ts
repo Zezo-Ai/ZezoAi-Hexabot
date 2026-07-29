@@ -14,6 +14,7 @@ export const SQLITE_VECTOR_DOCUMENTS_TABLE = 'rag_sqlite_vector_documents';
 
 export const SQLITE_VECTOR_CHUNKS_TABLE = 'rag_sqlite_vector_chunks';
 
+// Removed when upgrading from the worker-based implementation.
 export const SQLITE_VECTOR_JOBS_TABLE = 'rag_sqlite_vector_jobs';
 
 export const SQLITE_VECTOR_JOBS_INDEX = 'rag_sqlite_vector_jobs_available_idx';
@@ -26,48 +27,42 @@ export const SQLITE_VECTOR_UPDATE_TRIGGER =
 
 const CONTENTS_TABLE = 'contents';
 
-/**
- * SQLite expression producing the same lexicographically-sortable UTC format as
- * JavaScript's `Date#toISOString`, so timestamps written by triggers and by the
- * worker compare correctly against each other.
- */
-export const SQLITE_NOW = `strftime('%Y-%m-%dT%H:%M:%fZ','now')`;
-
 /** Whether the connection is one of the SQLite drivers TypeORM exposes. */
 export const isSqliteDatabase = (type: string): boolean =>
   type === 'better-sqlite3' || type === 'sqlite';
 
-/**
- * Reports whether the vector infrastructure is already fully in place: the
- * three helper tables and both enqueue triggers.
- */
+/** Checks the direct-index tables and absence of legacy worker objects. */
 export async function isSqliteVectorProvisioned(
   queryRunner: QueryRunner,
 ): Promise<boolean> {
-  const expected = [
+  const vectorTables = [
     SQLITE_VECTOR_DOCUMENTS_TABLE,
     SQLITE_VECTOR_CHUNKS_TABLE,
+  ];
+  const workerObjects = [
     SQLITE_VECTOR_JOBS_TABLE,
     SQLITE_VECTOR_INSERT_TRIGGER,
     SQLITE_VECTOR_UPDATE_TRIGGER,
   ];
+  const inspectedObjects = [...vectorTables, ...workerObjects];
   const rows = await queryRunner.query(
     `SELECT "name" FROM "sqlite_master" ` +
       `WHERE ("type" = 'table' AND "name" IN (?, ?, ?)) ` +
       `OR ("type" = 'trigger' AND "name" IN (?, ?))`,
-    expected,
+    inspectedObjects,
   );
   const present = new Set(
     (rows as Array<{ name: string }>).map((row) => row.name),
   );
 
-  return expected.every((name) => present.has(name));
+  return (
+    vectorTables.every((name) => present.has(name)) &&
+    workerObjects.every((name) => !present.has(name))
+  );
 }
 
 /**
- * Creates (or repairs) the entire vector RAG infrastructure: the
- * document/chunk/job tables, the enqueue triggers, and an initial backfill of
- * the job queue. Every statement is idempotent, so this is safe to re-run.
+ * Creates the vector tables and removes legacy worker objects.
  *
  * Embeddings are stored as `vec_f32` BLOBs in an ordinary table rather than in
  * a `vec0` virtual table. A `vec0` table must declare a fixed dimension up
@@ -88,7 +83,6 @@ export async function provisionSqliteVectorInfrastructure(
   const contents = `"${CONTENTS_TABLE}"`;
   const documents = `"${SQLITE_VECTOR_DOCUMENTS_TABLE}"`;
   const chunks = `"${SQLITE_VECTOR_CHUNKS_TABLE}"`;
-  const jobs = `"${SQLITE_VECTOR_JOBS_TABLE}"`;
 
   await queryRunner.query(
     `CREATE TABLE IF NOT EXISTS ${documents} (` +
@@ -114,65 +108,11 @@ export async function provisionSqliteVectorInfrastructure(
       `)`,
   );
   await queryRunner.query(
-    `CREATE TABLE IF NOT EXISTS ${jobs} (` +
-      `"content_id" varchar PRIMARY KEY, ` +
-      `"revision" integer NOT NULL DEFAULT 1, ` +
-      `"attempts" integer NOT NULL DEFAULT 0, ` +
-      `"available_at" text NOT NULL, ` +
-      `"locked_at" text NULL, ` +
-      `"locked_by" varchar NULL, ` +
-      `"last_error" text NULL, ` +
-      `"updated_at" text NOT NULL, ` +
-      `FOREIGN KEY ("content_id") REFERENCES ${contents}("id") ON DELETE CASCADE` +
-      `)`,
-  );
-  await queryRunner.query(
-    `CREATE INDEX IF NOT EXISTS "${SQLITE_VECTOR_JOBS_INDEX}" ` +
-      `ON ${jobs} ("available_at", "updated_at")`,
-  );
-
-  // Re-enqueue on inserts, on source-text edits, and on status flips. The
-  // status column matters because the `index_only_active_content` setting can
-  // exclude inactive content from the index: activating content must schedule
-  // its embedding, and deactivating it must schedule removal. The worker (not
-  // these triggers, which cannot read app settings) decides embed vs. remove.
-  // SQLite has no per-statement trigger carrying the operation, so the work is
-  // split across an insert trigger and an update trigger narrowed to real
-  // changes of the columns the worker cares about.
-  const enqueueBody =
-    `DELETE FROM ${documents} WHERE "content_id" = NEW."id"; ` +
-    `INSERT INTO ${jobs} ` +
-    `("content_id", "revision", "attempts", "available_at", "locked_at", "locked_by", "last_error", "updated_at") ` +
-    `VALUES (NEW."id", 1, 0, ${SQLITE_NOW}, NULL, NULL, NULL, ${SQLITE_NOW}) ` +
-    `ON CONFLICT ("content_id") DO UPDATE SET ` +
-    `"revision" = ${jobs}."revision" + 1, ` +
-    `"attempts" = 0, "available_at" = excluded."available_at", ` +
-    `"locked_at" = NULL, "locked_by" = NULL, "last_error" = NULL, ` +
-    `"updated_at" = excluded."updated_at"; `;
-
-  await queryRunner.query(
     `DROP TRIGGER IF EXISTS "${SQLITE_VECTOR_INSERT_TRIGGER}"`,
   );
   await queryRunner.query(
     `DROP TRIGGER IF EXISTS "${SQLITE_VECTOR_UPDATE_TRIGGER}"`,
   );
-  await queryRunner.query(
-    `CREATE TRIGGER "${SQLITE_VECTOR_INSERT_TRIGGER}" ` +
-      `AFTER INSERT ON ${contents} BEGIN ${enqueueBody}END`,
-  );
-  await queryRunner.query(
-    `CREATE TRIGGER "${SQLITE_VECTOR_UPDATE_TRIGGER}" ` +
-      `AFTER UPDATE OF "searchText", "status" ON ${contents} ` +
-      `WHEN NEW."searchText" IS NOT OLD."searchText" ` +
-      `OR NEW."status" IS NOT OLD."status" ` +
-      `BEGIN ${enqueueBody}END`,
-  );
-  // The SELECT needs a WHERE clause: without one SQLite cannot tell the upsert
-  // clause apart from a join's ON clause.
-  await queryRunner.query(
-    `INSERT INTO ${jobs} ` +
-      `("content_id", "revision", "attempts", "available_at", "updated_at") ` +
-      `SELECT "id", 1, 0, ${SQLITE_NOW}, ${SQLITE_NOW} FROM ${contents} ` +
-      `WHERE 1 = 1 ON CONFLICT ("content_id") DO NOTHING`,
-  );
+  await queryRunner.query(`DROP INDEX IF EXISTS "${SQLITE_VECTOR_JOBS_INDEX}"`);
+  await queryRunner.query(`DROP TABLE IF EXISTS "${SQLITE_VECTOR_JOBS_TABLE}"`);
 }

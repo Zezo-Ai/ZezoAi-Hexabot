@@ -4,28 +4,20 @@
  * Full terms: see LICENSE.md.
  */
 
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { ContentFull, Setting } from '@hexabot-ai/types';
-import {
-  Injectable,
-  OnApplicationBootstrap,
-  OnApplicationShutdown,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { EmbeddingModel, embed, embedMany } from 'ai';
 import { DataSource } from 'typeorm';
 import type z from 'zod';
 
-import {
-  RagHelperConfigurationError,
-  RagHelperUnavailableError,
-} from '@/cms/errors/rag.errors';
+import { RagHelperConfigurationError } from '@/cms/errors/rag.errors';
 import { DEFAULT_RAG_TOP_K, RagHit, RagQueryOptions } from '@/cms/types/rag';
 import { BaseRagHelper } from '@/helper/lib/base-rag-helper';
-import { HelperType } from '@/helper/types';
 import { CredentialService } from '@/user/services/credential.service';
 
 import { isSqliteDatabase } from './sqlite-vector.provisioning';
@@ -35,13 +27,10 @@ import {
 } from './sqlite-vector.settings';
 import {
   SqliteVectorEmbeddedChunk,
-  SqliteVectorJob,
+  SqliteVectorContent,
   SqliteVectorStore,
 } from './sqlite-vector.store';
 
-const WORKER_INTERVAL_MS = 2000;
-const RECONCILIATION_INTERVAL_MS = 60000;
-const WORKER_CONCURRENCY = 2;
 const EMBEDDING_TIMEOUT_MS = 60000;
 
 type SqliteVectorSettings = z.infer<typeof sqliteVectorSettingsSchema>;
@@ -67,30 +56,15 @@ type EmbeddingProviderFactory = (
  * counterpart of the pgvector helper: the two cover different databases, so
  * exactly one of them is ever available on a given deployment.
  *
- * Content triggers enqueue durable work whenever indexed text or status
- * changes, and a background worker embeds the queue. A profile hash over the
- * provider, model, dimensions and chunking settings keys every stored vector,
- * so changing any of them backfills a new profile while the previous one keeps
- * serving retrieval until the replacement is complete.
+ * Content lifecycle hooks update the SQLite index directly. A profile hash over
+ * the provider, model, dimensions and chunking settings keys every stored
+ * vector, so configuration changes rebuild the corpus under a new profile.
  */
 @Injectable()
-export default class SqliteVectorRagHelper
-  extends BaseRagHelper<typeof SQLITE_VECTOR_RAG_HELPER_NAME>
-  implements OnApplicationBootstrap, OnApplicationShutdown
-{
+export default class SqliteVectorRagHelper extends BaseRagHelper<
+  typeof SQLITE_VECTOR_RAG_HELPER_NAME
+> {
   private readonly store: SqliteVectorStore;
-
-  private readonly workerId = randomUUID();
-
-  private workerTimer?: NodeJS.Timeout;
-
-  private processing = false;
-
-  private wakeScheduled = false;
-
-  private lastReconciliationAt = 0;
-
-  private infrastructureWarningLogged = false;
 
   private dimensionMismatchWarned = false;
 
@@ -113,23 +87,6 @@ export default class SqliteVectorRagHelper
     return isSqliteDatabase(this.dataSource.options.type);
   }
 
-  async onApplicationBootstrap(): Promise<void> {
-    if (!this.isAvailable()) {
-      return;
-    }
-
-    this.workerTimer = setInterval(() => this.wakeWorker(), WORKER_INTERVAL_MS);
-    this.workerTimer.unref();
-    this.wakeWorker();
-  }
-
-  onApplicationShutdown(): void {
-    if (this.workerTimer) {
-      clearInterval(this.workerTimer);
-      this.workerTimer = undefined;
-    }
-  }
-
   async retrieve(
     query: string,
     options: RagQueryOptions = {},
@@ -150,8 +107,7 @@ export default class SqliteVectorRagHelper
       // invalid vector) are deterministic and need operator action, so they
       // keep propagating. A transient provider/network failure while embedding
       // the query (e.g. a 403, rate limit, timeout) must not hard-fail
-      // retrieval: degrade to no semantic hits so the conversation continues,
-      // mirroring the durable indexing path's "warn and move on" behavior.
+      // retrieval: degrade to no semantic hits so the conversation continues.
       if (error instanceof RagHelperConfigurationError) {
         throw error;
       }
@@ -177,21 +133,22 @@ export default class SqliteVectorRagHelper
     }));
   }
 
-  /**
-   * Content triggers already enqueue durable work in the same transaction.
-   * This lifecycle hook only reduces the worker's wake-up latency.
-   */
-  async index(_content: ContentFull): Promise<void> {
-    this.wakeWorker();
+  async index(content: ContentFull): Promise<void> {
+    const settings = await this.getConfiguration();
+    await this.indexContent(content, settings, this.getProfile(settings));
   }
 
-  /**
-   * Enqueues a bounded job per live content row. Existing embeddings remain
-   * usable until their replacement profile succeeds.
-   */
   async reindex(): Promise<void> {
-    await this.store.enqueueAll();
-    this.wakeWorker();
+    const settings = await this.getConfiguration();
+    const profile = this.getProfile(settings);
+    const contents = await this.store.loadContents();
+    for (const content of contents) {
+      await this.indexContent(content, settings, profile);
+    }
+  }
+
+  async remove(contentId: string): Promise<void> {
+    await this.store.remove(contentId);
   }
 
   @OnEvent('hook:sqlite-vector:*')
@@ -201,165 +158,63 @@ export default class SqliteVectorRagHelper
     }
 
     try {
-      if (setting.label === 'embedding_api_key') {
-        await this.store.wakePendingRetries();
-      } else if (
+      if (
         [
+          'embedding_api_key',
           'embedding_provider',
           'embedding_model',
           'embedding_base_url',
           'embedding_dimensions',
           'chunk_size',
           'chunk_overlap',
-          // Re-evaluate every row: the worker embeds active content and drops
-          // inactive content, so toggling in either direction converges the
-          // index (purging inactive rows when enabled, backfilling them when
-          // disabled).
           'index_only_active_content',
         ].includes(setting.label)
       ) {
-        // The model/provider/dimension request may have changed; re-evaluate
-        // the "requested dimension not honored" warning on the next embed.
         this.dimensionMismatchWarned = false;
-        await this.store.enqueueAll();
+        await this.reindex();
       }
-      this.wakeWorker();
     } catch (error) {
       this.logger.error(
-        'Unable to schedule sqlite-vector RAG work after a settings change.',
+        'Unable to reindex sqlite-vector RAG after a settings change.',
         error,
       );
     }
   }
 
-  private wakeWorker(): void {
-    if (this.wakeScheduled || this.processing || !this.isAvailable()) {
-      return;
-    }
-
-    this.wakeScheduled = true;
-    queueMicrotask(() => {
-      this.wakeScheduled = false;
-      void this.processJobs();
-    });
-  }
-
-  private async processJobs(): Promise<void> {
-    if (this.processing || !(await this.isSelected())) {
-      return;
-    }
-
-    this.processing = true;
-    let claimedJobs = 0;
-    try {
-      const settings = await this.getConfiguration();
-      const profile = this.getProfile(settings);
-      if (
-        Date.now() - this.lastReconciliationAt >=
-        RECONCILIATION_INTERVAL_MS
-      ) {
-        await this.store.enqueueMissing(
-          profile,
-          settings.index_only_active_content,
-        );
-        this.lastReconciliationAt = Date.now();
-      }
-
-      const jobs = await this.store.claimJobs(
-        this.workerId,
-        WORKER_CONCURRENCY,
-      );
-      claimedJobs = jobs.length;
-      await Promise.all(
-        jobs.map((job) => this.processJob(job, settings, profile)),
-      );
-      this.infrastructureWarningLogged = false;
-    } catch (error) {
-      if (error instanceof RagHelperConfigurationError) {
-        return;
-      }
-
-      if (
-        error instanceof RagHelperUnavailableError &&
-        this.infrastructureWarningLogged
-      ) {
-        return;
-      }
-      this.infrastructureWarningLogged =
-        error instanceof RagHelperUnavailableError;
-      this.logger.error(
-        'Unable to process the sqlite-vector RAG queue.',
-        error,
-      );
-    } finally {
-      this.processing = false;
-      if (claimedJobs === WORKER_CONCURRENCY) {
-        this.wakeWorker();
-      }
-    }
-  }
-
-  private async processJob(
-    job: SqliteVectorJob,
+  private async indexContent(
+    content: Pick<SqliteVectorContent, 'id' | 'searchText' | 'status'>,
     settings: SqliteVectorSettings,
     profile: string,
   ): Promise<void> {
-    try {
-      const content = await this.store.loadContent(job.contentId);
-      if (!content) {
-        return;
-      }
+    if (settings.index_only_active_content && !content.status) {
+      await this.store.remove(content.id);
 
-      // Never embed (i.e. transmit to the external provider) inactive content
-      // when the operator opted to index only active content. Drop any existing
-      // embeddings and clear the job instead.
-      if (settings.index_only_active_content && !content.status) {
-        await this.store.discardInactive(job, this.workerId);
-
-        return;
-      }
-
-      const chunks = this.chunkSearchText(
-        content.searchText,
-        settings.chunk_size,
-        settings.chunk_overlap,
-      );
-      const embeddings = chunks.length
-        ? await this.embedChunks(
-            chunks.map(({ text }) => text),
-            settings,
-          )
-        : [];
-      const embeddedChunks: SqliteVectorEmbeddedChunk[] = chunks.map(
-        (chunk, index) => ({
-          ...chunk,
-          embedding: embeddings[index],
-        }),
-      );
-      await this.store.save(
-        job,
-        this.workerId,
-        profile,
-        content.searchText,
-        embeddedChunks,
-      );
-    } catch (error) {
-      await this.store.fail(job, this.workerId, error);
-      this.logger.warn(
-        `Unable to embed content "${job.contentId}"; the durable RAG job will be retried.`,
-        error,
-      );
+      return;
     }
-  }
 
-  private async isSelected(): Promise<boolean> {
-    try {
-      const helper = await this.helperService.getDefaultHelper(HelperType.RAG);
-
-      return helper.getName() === SQLITE_VECTOR_RAG_HELPER_NAME;
-    } catch {
-      return false;
-    }
+    const chunks = this.chunkSearchText(
+      content.searchText,
+      settings.chunk_size,
+      settings.chunk_overlap,
+    );
+    const embeddings = chunks.length
+      ? await this.embedChunks(
+          chunks.map(({ text }) => text),
+          settings,
+        )
+      : [];
+    const embeddedChunks: SqliteVectorEmbeddedChunk[] = chunks.map(
+      (chunk, index) => ({
+        ...chunk,
+        embedding: embeddings[index],
+      }),
+    );
+    await this.store.save(
+      content.id,
+      profile,
+      content.searchText,
+      embeddedChunks,
+    );
   }
 
   private async getConfiguration(): Promise<SqliteVectorSettings> {

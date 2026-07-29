@@ -51,14 +51,9 @@ const createHelper = (
   const store = {
     assertInfrastructure: jest.fn(),
     search: jest.fn().mockResolvedValue([]),
-    enqueueAll: jest.fn(),
-    enqueueMissing: jest.fn(),
-    wakePendingRetries: jest.fn(),
-    claimJobs: jest.fn().mockResolvedValue([]),
-    loadContent: jest.fn(),
-    discardInactive: jest.fn().mockResolvedValue(true),
-    save: jest.fn().mockResolvedValue(true),
-    fail: jest.fn(),
+    loadContents: jest.fn().mockResolvedValue([]),
+    remove: jest.fn(),
+    save: jest.fn(),
   };
   const logger = {
     log: jest.fn(),
@@ -74,7 +69,6 @@ const createHelper = (
   (helper as unknown as { settingService: unknown }).settingService =
     settingService;
   (helper as unknown as { logger: unknown }).logger = logger;
-  (helper as unknown as { wakeWorker: jest.Mock }).wakeWorker = jest.fn();
 
   return { credentialService, helper, logger, settingService, store };
 };
@@ -234,21 +228,19 @@ describe('SqliteVectorRagHelper', () => {
     await expect(helper.retrieve('query')).rejects.toThrow('zero vector');
   });
 
-  it('enqueues corpus work for profile changes and only wakes retries for key changes', async () => {
+  it('reindexes directly when embedding settings change', async () => {
     const { helper, store } = createHelper();
 
     await helper.handleSettingsChanged({ label: 'embedding_model' } as never);
-    expect(store.enqueueAll).toHaveBeenCalledTimes(1);
-    expect(store.wakePendingRetries).not.toHaveBeenCalled();
+    expect(store.loadContents).toHaveBeenCalledTimes(1);
 
     await helper.handleSettingsChanged({
       label: 'embedding_provider',
     } as never);
-    expect(store.enqueueAll).toHaveBeenCalledTimes(2);
+    expect(store.loadContents).toHaveBeenCalledTimes(2);
 
     await helper.handleSettingsChanged({ label: 'embedding_api_key' } as never);
-    expect(store.wakePendingRetries).toHaveBeenCalledTimes(1);
-    expect(store.enqueueAll).toHaveBeenCalledTimes(2);
+    expect(store.loadContents).toHaveBeenCalledTimes(3);
   });
 
   it('ignores settings changes on a database it does not support', async () => {
@@ -256,15 +248,25 @@ describe('SqliteVectorRagHelper', () => {
 
     await helper.handleSettingsChanged({ label: 'embedding_model' } as never);
 
-    expect(store.enqueueAll).not.toHaveBeenCalled();
+    expect(store.loadContents).not.toHaveBeenCalled();
   });
 
-  it('implements non-destructive reindexing by enqueuing the corpus', async () => {
+  it('reindexes the corpus directly', async () => {
     const { helper, store } = createHelper();
+    store.loadContents.mockResolvedValue([
+      { id: 'c1', searchText: 'body', status: true },
+    ]);
+    (embedMany as jest.Mock).mockResolvedValue({ embeddings: [[1, 0]] });
 
     await helper.reindex();
 
-    expect(store.enqueueAll).toHaveBeenCalledTimes(1);
+    expect(store.loadContents).toHaveBeenCalledTimes(1);
+    expect(store.save).toHaveBeenCalledWith(
+      'c1',
+      expect.stringMatching(/^[a-f0-9]{64}$/),
+      'body',
+      [{ index: 0, text: 'body', embedding: [1, 0] }],
+    );
   });
 
   it('re-evaluates the corpus when index_only_active_content is toggled', async () => {
@@ -274,34 +276,20 @@ describe('SqliteVectorRagHelper', () => {
       label: 'index_only_active_content',
     } as never);
 
-    expect(store.enqueueAll).toHaveBeenCalledTimes(1);
+    expect(store.loadContents).toHaveBeenCalledTimes(1);
   });
 
-  it('discards inactive content instead of transmitting it to the provider', async () => {
+  it('removes inactive content instead of transmitting it to the provider', async () => {
     const { helper, store } = createHelper();
-    const job = { contentId: 'c1', revision: 1, attempts: 0 };
-    store.claimJobs.mockResolvedValue([job]);
-    store.loadContent.mockResolvedValue({
+    const content = {
       id: 'c1',
       searchText: 'draft body',
       status: false,
-    });
-    jest
-      .spyOn(
-        helper as unknown as { isSelected: () => Promise<boolean> },
-        'isSelected',
-      )
-      .mockResolvedValue(true);
+    };
 
-    await (
-      helper as unknown as { processJobs: () => Promise<void> }
-    ).processJobs();
+    await helper.index(content as never);
 
-    expect(store.enqueueMissing).toHaveBeenCalledWith(
-      expect.stringMatching(/^[a-f0-9]{64}$/),
-      true,
-    );
-    expect(store.discardInactive).toHaveBeenCalledWith(job, expect.any(String));
+    expect(store.remove).toHaveBeenCalledWith('c1');
     expect(store.save).not.toHaveBeenCalled();
     expect(embedMany).not.toHaveBeenCalled();
   });
@@ -312,63 +300,28 @@ describe('SqliteVectorRagHelper', () => {
       settingsWith({ index_only_active_content: false }),
     );
     (embedMany as jest.Mock).mockResolvedValue({ embeddings: [[1, 0]] });
-    const job = { contentId: 'c1', revision: 1, attempts: 0 };
-    store.claimJobs.mockResolvedValue([job]);
-    store.loadContent.mockResolvedValue({
+    const content = {
       id: 'c1',
       searchText: 'draft body',
       status: false,
-    });
-    jest
-      .spyOn(
-        helper as unknown as { isSelected: () => Promise<boolean> },
-        'isSelected',
-      )
-      .mockResolvedValue(true);
+    };
 
-    await (
-      helper as unknown as { processJobs: () => Promise<void> }
-    ).processJobs();
+    await helper.index(content as never);
 
-    expect(store.enqueueMissing).toHaveBeenCalledWith(
+    expect(store.remove).not.toHaveBeenCalled();
+    expect(store.save).toHaveBeenCalledWith(
+      'c1',
       expect.stringMatching(/^[a-f0-9]{64}$/),
-      false,
+      'draft body',
+      [{ index: 0, text: 'draft body', embedding: [1, 0] }],
     );
-    expect(store.discardInactive).not.toHaveBeenCalled();
-    expect(store.save).toHaveBeenCalled();
   });
 
-  it('retries a failed job instead of losing it', async () => {
-    const { helper, store, logger } = createHelper();
-    const job = { contentId: 'c1', revision: 1, attempts: 0 };
-    const providerError = new Error('rate limited');
-    store.claimJobs.mockResolvedValue([job]);
-    store.loadContent.mockResolvedValue({
-      id: 'c1',
-      searchText: 'body',
-      status: true,
-    });
-    (embedMany as jest.Mock).mockRejectedValue(providerError);
-    jest
-      .spyOn(
-        helper as unknown as { isSelected: () => Promise<boolean> },
-        'isSelected',
-      )
-      .mockResolvedValue(true);
+  it('removes deleted content directly', async () => {
+    const { helper, store } = createHelper();
 
-    await (
-      helper as unknown as { processJobs: () => Promise<void> }
-    ).processJobs();
+    await helper.remove('c1');
 
-    expect(store.fail).toHaveBeenCalledWith(
-      job,
-      expect.any(String),
-      providerError,
-    );
-    expect(store.save).not.toHaveBeenCalled();
-    expect(logger.warn).toHaveBeenCalledWith(
-      expect.stringContaining('will be retried'),
-      providerError,
-    );
+    expect(store.remove).toHaveBeenCalledWith('c1');
   });
 });
