@@ -17,6 +17,7 @@ import {
 import { OnEvent } from '@nestjs/event-emitter';
 import { EmbeddingModel, embed, embedMany } from 'ai';
 import { DataSource } from 'typeorm';
+import type z from 'zod';
 
 import {
   RagHelperConfigurationError,
@@ -43,16 +44,7 @@ const RECONCILIATION_INTERVAL_MS = 60000;
 const WORKER_CONCURRENCY = 2;
 const EMBEDDING_TIMEOUT_MS = 60000;
 
-type SqliteVectorSettings = {
-  embedding_provider: string;
-  embedding_model: string;
-  embedding_api_key: string;
-  embedding_base_url: string;
-  embedding_dimensions: number;
-  chunk_size: number;
-  chunk_overlap: number;
-  index_only_active_content: boolean;
-};
+type SqliteVectorSettings = z.infer<typeof sqliteVectorSettingsSchema>;
 
 type EmbeddingProviderInitOptions = {
   apiKey?: string;
@@ -398,7 +390,6 @@ export default class SqliteVectorRagHelper
 
     return {
       ...settings,
-      embedding_provider: settings.embedding_provider.trim(),
       embedding_api_key: apiKey,
       embedding_model: settings.embedding_model.trim(),
       embedding_base_url: settings.embedding_base_url.replace(/\/+$/, ''),
