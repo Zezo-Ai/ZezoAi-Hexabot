@@ -22,6 +22,15 @@ that helper; there is no feature enable/disable switch.
 A custom RAG helper must extend `BaseRagHelper` and implement `retrieve`.
 `index`, `remove`, and `reindex` are optional.
 
+A helper that builds its index from an external embedding provider should
+extend `BaseRagEmbeddingHelper` instead. It carries the chunking
+(`chunkSearchText`), provider resolution, query/chunk embedding, vector
+validation, and the profile hash that keys stored vectors to the configuration
+that produced them. All of it is shared for one reason: two helpers that
+disagreed on any of it would produce indexes that cannot be compared or
+migrated between. `pgvector` and `sqlite-vector` both build on it and differ
+only in storage and lifecycle strategy.
+
 The CMS lifecycle hooks forwarded to `index` and `remove` are best-effort
 latency signals. They are not durable change capture: a process failure after
 the CMS transaction commits, direct SQL, or another writer can cause an

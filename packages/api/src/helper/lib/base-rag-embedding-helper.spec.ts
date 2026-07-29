@@ -6,9 +6,9 @@
 
 import { RagHit } from '@/cms/types/rag';
 
-import BaseRagHelper, { RagChunk } from './base-rag-helper';
+import BaseRagEmbeddingHelper, { RagChunk } from './base-rag-embedding-helper';
 
-class ChunkingRagHelper extends BaseRagHelper {
+class ChunkingRagHelper extends BaseRagEmbeddingHelper {
   constructor() {
     super('chunking-rag-helper');
   }
@@ -23,7 +23,7 @@ class ChunkingRagHelper extends BaseRagHelper {
   }
 }
 
-describe('BaseRagHelper chunking', () => {
+describe('BaseRagEmbeddingHelper chunking', () => {
   const helper = new ChunkingRagHelper();
 
   it('prefers paragraph and line boundaries with deterministic overlap', () => {
