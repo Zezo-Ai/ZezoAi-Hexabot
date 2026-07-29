@@ -6,6 +6,8 @@
 
 import { QueryRunner } from 'typeorm';
 
+import { qualifiedName } from '@/helper/lib/content-search.store';
+
 // Schema object names and DDL for the built-in lexical (full-text) RAG helper.
 // This is the single source of truth for provisioning the database-native
 // search structures — a Postgres GIN expression index over `to_tsvector`, or a
@@ -46,17 +48,6 @@ function isSqlite(queryRunner: QueryRunner): boolean {
   const databaseType = queryRunner.connection.options.type;
 
   return databaseType === 'better-sqlite3' || databaseType === 'sqlite';
-}
-
-/**
- * Quotes an object name, prefixing the configured connection schema when one is
- * set so the DDL targets the right namespace under multi-tenant/test schemas.
- */
-export function qualifiedName(queryRunner: QueryRunner, name: string): string {
-  const schema = (queryRunner.connection.options as { schema?: string }).schema;
-  const quotedName = `"${name.replace(/"/g, '""')}"`;
-
-  return schema ? `"${schema.replace(/"/g, '""')}".${quotedName}` : quotedName;
 }
 
 /**

@@ -6,6 +6,8 @@
 
 import { QueryRunner } from 'typeorm';
 
+import { qualifiedName } from '@/helper/lib/content-search.store';
+
 // Schema object names and DDL for the pgvector RAG helper. This is the single
 // source of truth for provisioning, imported by both the v3.4.0 migration
 // (best-effort provisioning at upgrade time) and the runtime store (idempotent
@@ -20,17 +22,6 @@ export const PGVECTOR_JOBS_TABLE = 'rag_pgvector_jobs';
 export const PGVECTOR_TRIGGER = 'contents_enqueue_pgvector_rag';
 
 export const PGVECTOR_TRIGGER_FUNCTION = 'enqueue_pgvector_rag_content';
-
-/**
- * Quotes an object name, prefixing the configured connection schema when one is
- * set so the DDL targets the right namespace under multi-tenant/test schemas.
- */
-export function qualifiedName(queryRunner: QueryRunner, name: string): string {
-  const schema = (queryRunner.connection.options as { schema?: string }).schema;
-  const quotedName = `"${name.replace(/"/g, '""')}"`;
-
-  return schema ? `"${schema.replace(/"/g, '""')}".${quotedName}` : quotedName;
-}
 
 /**
  * Reports whether the pgvector infrastructure is already fully in place: the

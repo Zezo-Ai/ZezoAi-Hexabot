@@ -4,7 +4,7 @@
  * Full terms: see LICENSE.md.
  */
 
-import { DataSource } from 'typeorm';
+import { DataSource, QueryRunner } from 'typeorm';
 
 import { ContentOrmEntity } from '@/cms/entities/content.entity';
 import { RagHit } from '@/cms/types/rag';
@@ -29,6 +29,20 @@ export const quoteIdentifier = (identifier: string): string =>
 /** Quotes a dotted table path (e.g. `schema.table`) segment by segment. */
 export const quoteTablePath = (path: string): string =>
   path.split('.').map(quoteIdentifier).join('.');
+
+/**
+ * Quotes an object name, prefixing the configured connection schema when one is
+ * set so the DDL targets the right namespace under multi-tenant/test schemas.
+ */
+export const qualifiedName = (
+  queryRunner: QueryRunner,
+  name: string,
+): string => {
+  const schema = (queryRunner.connection.options as { schema?: string }).schema;
+  const quotedName = quoteIdentifier(name);
+
+  return schema ? `${quoteIdentifier(schema)}.${quotedName}` : quotedName;
+};
 
 /**
  * Shared persistence boundary for the content-backed RAG search stores.

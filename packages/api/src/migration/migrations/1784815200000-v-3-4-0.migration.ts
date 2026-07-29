@@ -20,8 +20,8 @@ import {
   PGVECTOR_TRIGGER,
   PGVECTOR_TRIGGER_FUNCTION,
   provisionPgvectorInfrastructure,
-  qualifiedName,
 } from '@/extensions/helpers/pgvector/pgvector.provisioning';
+import { qualifiedName as table } from '@/helper/lib/content-search.store';
 import { SettingOrmEntity } from '@/setting/entities/setting.entity';
 
 import { MigrationServices } from '../types';
@@ -76,30 +76,24 @@ export default class Migration1784815200000_V3_4_0
     const databaseType = queryRunner.connection.options.type;
 
     if (databaseType === 'postgres') {
-      const contents = this.table(queryRunner, 'contents');
+      const contents = table(queryRunner, 'contents');
       await queryRunner.query(
         `DROP TRIGGER IF EXISTS "${PGVECTOR_TRIGGER}" ON ${contents}`,
       );
       await queryRunner.query(
-        `DROP FUNCTION IF EXISTS ${this.table(
+        `DROP FUNCTION IF EXISTS ${table(
           queryRunner,
           PGVECTOR_TRIGGER_FUNCTION,
         )}()`,
       );
       await queryRunner.query(
-        `DROP TABLE IF EXISTS ${this.table(
-          queryRunner,
-          PGVECTOR_CHUNKS_TABLE,
-        )}`,
+        `DROP TABLE IF EXISTS ${table(queryRunner, PGVECTOR_CHUNKS_TABLE)}`,
       );
       await queryRunner.query(
-        `DROP TABLE IF EXISTS ${this.table(
-          queryRunner,
-          PGVECTOR_DOCUMENTS_TABLE,
-        )}`,
+        `DROP TABLE IF EXISTS ${table(queryRunner, PGVECTOR_DOCUMENTS_TABLE)}`,
       );
       await queryRunner.query(
-        `DROP TABLE IF EXISTS ${this.table(queryRunner, PGVECTOR_JOBS_TABLE)}`,
+        `DROP TABLE IF EXISTS ${table(queryRunner, PGVECTOR_JOBS_TABLE)}`,
       );
     }
 
@@ -392,8 +386,8 @@ export default class Migration1784815200000_V3_4_0
       return undefined;
     }
 
-    const credentials = this.table(queryRunner, 'credentials');
-    const users = this.table(queryRunner, 'users');
+    const credentials = table(queryRunner, 'credentials');
+    const users = table(queryRunner, 'users');
     const placeholder = (index: number) =>
       queryRunner.connection.options.type === 'postgres' ? `$${index}` : '?';
     const existingById = (await queryRunner.query(
@@ -471,9 +465,5 @@ export default class Migration1784815200000_V3_4_0
     const provider = this.asNonEmptyString(value);
 
     return vercelAiSdkProviders.find((candidate) => candidate === provider);
-  }
-
-  private table(queryRunner: QueryRunner, name: string): string {
-    return qualifiedName(queryRunner, name);
   }
 }
