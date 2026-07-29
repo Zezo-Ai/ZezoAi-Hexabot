@@ -58,7 +58,7 @@ export class SqliteVectorStore extends ContentSearchStore {
   async assertInfrastructure(): Promise<void> {
     if (!isSqliteDatabase(this.databaseType)) {
       throw new RagHelperUnavailableError(
-        `The sqlite-vector RAG helper requires SQLite, but the database is "${this.databaseType}". ` +
+        `The sqlite-vector RAG helper requires the better-sqlite3 driver, but the database is "${this.databaseType}". ` +
           'Use the pgvector helper on PostgreSQL.',
       );
     }
@@ -260,9 +260,15 @@ export class SqliteVectorStore extends ContentSearchStore {
     const vector = JSON.stringify(embedding);
     // The distance is referenced twice (score and window ordering) and `?`
     // placeholders are positional, so the vector is bound twice.
-    const params: unknown[] = [vector, vector, profile];
+    const params: unknown[] = [
+      vector,
+      vector,
+      profile,
+      embedding.length * Float32Array.BYTES_PER_ELEMENT,
+    ];
     const conditions = [
       `document."profile" = ?`,
+      `length(chunk."embedding") = ?`,
       `document."source_text" = content.${textColumn}`,
     ];
 

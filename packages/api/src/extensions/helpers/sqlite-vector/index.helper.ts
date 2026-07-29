@@ -19,6 +19,7 @@ import type z from 'zod';
 import { RagHelperConfigurationError } from '@/cms/errors/rag.errors';
 import { DEFAULT_RAG_TOP_K, RagHit, RagQueryOptions } from '@/cms/types/rag';
 import { BaseRagHelper } from '@/helper/lib/base-rag-helper';
+import { HelperType } from '@/helper/types';
 import { CredentialService } from '@/user/services/credential.service';
 
 import { isSqliteDatabase } from './sqlite-vector.provisioning';
@@ -157,19 +158,41 @@ export default class SqliteVectorRagHelper extends BaseRagHelper<
       const profile = this.getProfile(settings);
       const contents = await this.store.loadContents();
       const embeddable: SqliteVectorContent[] = [];
+      const failures: unknown[] = [];
       for (const content of contents) {
         if (settings.index_only_active_content && !content.status) {
-          await this.store.remove(content.id);
+          try {
+            await this.store.remove(content.id);
+          } catch (error) {
+            failures.push(error);
+            this.logger.warn(
+              `Unable to remove inactive content "${content.id}" from sqlite-vector.`,
+              error,
+            );
+          }
         } else {
           embeddable.push(content);
         }
       }
-      if (embeddable.length === 0) {
-        return;
+      if (embeddable.length > 0) {
+        const configuration = await this.resolveCredential(settings);
+        for (const content of embeddable) {
+          try {
+            await this.indexContent(content, configuration, profile);
+          } catch (error) {
+            failures.push(error);
+            this.logger.warn(
+              `Unable to index content "${content.id}" in sqlite-vector.`,
+              error,
+            );
+          }
+        }
       }
-      const configuration = await this.resolveCredential(settings);
-      for (const content of embeddable) {
-        await this.indexContent(content, configuration, profile);
+      if (failures.length > 0) {
+        throw new AggregateError(
+          failures,
+          `Unable to reindex ${failures.length} sqlite-vector content item(s).`,
+        );
       }
     });
   }
@@ -180,7 +203,7 @@ export default class SqliteVectorRagHelper extends BaseRagHelper<
 
   @OnEvent('hook:sqlite-vector:*')
   async handleSettingsChanged(setting?: Pick<Setting, 'label'>): Promise<void> {
-    if (!this.isAvailable() || !setting?.label) {
+    if (!this.isAvailable() || !setting?.label || !(await this.isSelected())) {
       return;
     }
 
@@ -210,25 +233,37 @@ export default class SqliteVectorRagHelper extends BaseRagHelper<
 
   private async requestSettingsReindex(): Promise<void> {
     this.settingsReindexRequested = true;
-    this.settingsReindexPromise ??= this.runSettingsReindexes().finally(() => {
-      this.settingsReindexPromise = undefined;
-    });
+    this.settingsReindexPromise ??= this.runSettingsReindexes();
     await this.settingsReindexPromise;
   }
 
   private async runSettingsReindexes(): Promise<void> {
     let lastError: unknown;
-    while (this.settingsReindexRequested) {
-      this.settingsReindexRequested = false;
-      try {
-        await this.reindex();
-        lastError = undefined;
-      } catch (error) {
-        lastError = error;
+    try {
+      while (this.settingsReindexRequested) {
+        this.settingsReindexRequested = false;
+        try {
+          await this.reindex();
+          lastError = undefined;
+        } catch (error) {
+          lastError = error;
+        }
       }
+    } finally {
+      this.settingsReindexPromise = undefined;
     }
     if (lastError) {
       throw lastError;
+    }
+  }
+
+  private async isSelected(): Promise<boolean> {
+    try {
+      const helper = await this.helperService.getDefaultHelper(HelperType.RAG);
+
+      return helper.getName() === SQLITE_VECTOR_RAG_HELPER_NAME;
+    } catch {
+      return false;
     }
   }
 

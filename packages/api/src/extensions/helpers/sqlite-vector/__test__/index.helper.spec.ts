@@ -68,6 +68,9 @@ const createHelper = (
   (helper as unknown as { store: unknown }).store = store;
   (helper as unknown as { settingService: unknown }).settingService =
     settingService;
+  (helper as unknown as { helperService: unknown }).helperService = {
+    getDefaultHelper: jest.fn().mockResolvedValue(helper),
+  };
   (helper as unknown as { logger: unknown }).logger = logger;
 
   return { credentialService, helper, logger, settingService, store };
@@ -251,6 +254,21 @@ describe('SqliteVectorRagHelper', () => {
     expect(store.loadContents).not.toHaveBeenCalled();
   });
 
+  it('ignores settings changes when sqlite-vector is not selected', async () => {
+    const { helper, store } = createHelper();
+    (
+      helper as unknown as {
+        helperService: { getDefaultHelper: jest.Mock };
+      }
+    ).helperService.getDefaultHelper.mockResolvedValue({
+      getName: () => 'fulltext-search',
+    });
+
+    await helper.handleSettingsChanged({ label: 'embedding_model' } as never);
+
+    expect(store.loadContents).not.toHaveBeenCalled();
+  });
+
   it('reindexes the corpus directly', async () => {
     const { helper, store } = createHelper();
     store.loadContents.mockResolvedValue([
@@ -267,6 +285,32 @@ describe('SqliteVectorRagHelper', () => {
       'body',
       true,
       [{ index: 0, text: 'body', embedding: [1, 0] }],
+    );
+  });
+
+  it('continues reindexing after one content fails', async () => {
+    const { helper, logger, store } = createHelper();
+    const error = new Error('provider unavailable');
+    store.loadContents.mockResolvedValue([
+      { id: 'c1', searchText: 'first', status: true },
+      { id: 'c2', searchText: 'second', status: true },
+    ]);
+    (embedMany as jest.Mock)
+      .mockRejectedValueOnce(error)
+      .mockResolvedValueOnce({ embeddings: [[1, 0]] });
+
+    await expect(helper.reindex()).rejects.toBeInstanceOf(AggregateError);
+
+    expect(store.save).toHaveBeenCalledWith(
+      'c2',
+      expect.any(String),
+      'second',
+      true,
+      [{ index: 0, text: 'second', embedding: [1, 0] }],
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('"c1"'),
+      error,
     );
   });
 

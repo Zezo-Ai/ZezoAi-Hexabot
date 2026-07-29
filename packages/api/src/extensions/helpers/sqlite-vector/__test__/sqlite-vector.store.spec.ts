@@ -128,9 +128,10 @@ describe('SqliteVectorStore', () => {
       expect(sql).toContain(
         '1 - vec_distance_cosine(chunk."embedding", vec_f32(?))',
       );
+      expect(sql).toContain('length(chunk."embedding") = ?');
       expect(sql).toContain('ROW_NUMBER() OVER');
       expect(sql).toContain('LIMIT 5');
-      expect(params).toEqual(['[1,0]', '[1,0]', 'profile-hash', 1, 'ct1']);
+      expect(params).toEqual(['[1,0]', '[1,0]', 'profile-hash', 8, 1, 'ct1']);
     });
   });
 

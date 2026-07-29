@@ -171,6 +171,17 @@ describeWithSqliteVec('SQLite sqlite-vector RAG integration', () => {
     ]);
   });
 
+  it('ignores stored vectors with a different dimension', async () => {
+    await insertContent('c1', 'alpha');
+    await insertContent('c2', 'beta');
+    await saveEmbedding('c1', [1, 0, 0], 'alpha chunk', 'alpha');
+    await saveEmbedding('c2', [1, 0, 0, 0], 'beta chunk', 'beta');
+
+    await expect(store.search([1, 0, 0], PROFILE)).resolves.toMatchObject([
+      { contentId: 'c1' },
+    ]);
+  });
+
   it('hides stale embeddings', async () => {
     await insertContent('c1', 'alpha');
     await saveEmbedding('c1', [1, 0, 0], 'alpha chunk', 'alpha');
