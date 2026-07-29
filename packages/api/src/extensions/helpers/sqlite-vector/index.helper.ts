@@ -69,6 +69,10 @@ export default class SqliteVectorRagHelper extends BaseRagHelper<
 
   private readonly indexMutex = new Mutex();
 
+  private settingsReindexPromise?: Promise<void>;
+
+  private settingsReindexRequested = false;
+
   private dimensionMismatchWarned = false;
 
   constructor(
@@ -172,13 +176,28 @@ export default class SqliteVectorRagHelper extends BaseRagHelper<
         ].includes(setting.label)
       ) {
         this.dimensionMismatchWarned = false;
-        await this.reindex();
+        await this.requestSettingsReindex();
       }
     } catch (error) {
       this.logger.error(
         'Unable to reindex sqlite-vector RAG after a settings change.',
         error,
       );
+    }
+  }
+
+  private async requestSettingsReindex(): Promise<void> {
+    this.settingsReindexRequested = true;
+    this.settingsReindexPromise ??= this.runSettingsReindexes().finally(() => {
+      this.settingsReindexPromise = undefined;
+    });
+    await this.settingsReindexPromise;
+  }
+
+  private async runSettingsReindexes(): Promise<void> {
+    while (this.settingsReindexRequested) {
+      this.settingsReindexRequested = false;
+      await this.reindex();
     }
   }
 

@@ -17,7 +17,7 @@ const contentMetadata = {
     joinColumns: [{ databaseName: 'content_type_id' }],
   }),
 };
-const createStore = () => {
+const createStore = (infrastructureReady = true) => {
   const query = jest.fn().mockResolvedValue([]);
   const queryRunner = {
     connect: jest.fn(),
@@ -36,7 +36,7 @@ const createStore = () => {
   } as unknown as DataSource;
   const store = new SqliteVectorStore(dataSource);
   (store as unknown as { infrastructureReady: boolean }).infrastructureReady =
-    true;
+    infrastructureReady;
   (store as unknown as { extensionLoaded: boolean }).extensionLoaded = true;
 
   return {
@@ -47,6 +47,30 @@ const createStore = () => {
 };
 
 describe('SqliteVectorStore', () => {
+  it('initializes infrastructure once for concurrent callers', async () => {
+    const { queryRunner, store } = createStore(false);
+    jest
+      .spyOn(
+        store as unknown as {
+          loadVectorExtension: () => Promise<void>;
+        },
+        'loadVectorExtension',
+      )
+      .mockResolvedValue();
+    queryRunner.query.mockResolvedValueOnce([
+      { name: 'rag_sqlite_vector_documents' },
+      { name: 'rag_sqlite_vector_chunks' },
+    ]);
+
+    await Promise.all([
+      store.assertInfrastructure(),
+      store.assertInfrastructure(),
+    ]);
+
+    expect(queryRunner.connect).toHaveBeenCalledTimes(1);
+    expect(queryRunner.release).toHaveBeenCalledTimes(1);
+  });
+
   it('loads the content corpus for direct reindexing', async () => {
     const { query, store } = createStore();
     query.mockResolvedValueOnce([

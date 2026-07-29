@@ -29,7 +29,7 @@ const CONTENTS_TABLE = 'contents';
 
 /** Whether the connection is one of the SQLite drivers TypeORM exposes. */
 export const isSqliteDatabase = (type: string): boolean =>
-  type === 'better-sqlite3' || type === 'sqlite';
+  type === 'better-sqlite3';
 
 /** Checks the direct-index tables and absence of legacy worker objects. */
 export async function isSqliteVectorProvisioned(

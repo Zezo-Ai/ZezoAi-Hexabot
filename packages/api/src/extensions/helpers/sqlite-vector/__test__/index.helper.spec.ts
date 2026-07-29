@@ -84,7 +84,7 @@ describe('SqliteVectorRagHelper', () => {
 
   it('is registered on SQLite only, leaving PostgreSQL to the pgvector helper', () => {
     expect(createHelper('better-sqlite3').helper.isAvailable()).toBe(true);
-    expect(createHelper('sqlite').helper.isAvailable()).toBe(true);
+    expect(createHelper('sqlite').helper.isAvailable()).toBe(false);
     expect(createHelper('postgres').helper.isAvailable()).toBe(false);
     expect(createHelper('mongodb').helper.isAvailable()).toBe(false);
   });
@@ -278,6 +278,38 @@ describe('SqliteVectorRagHelper', () => {
     } as never);
 
     expect(store.loadContents).toHaveBeenCalledTimes(1);
+  });
+
+  it('coalesces settings changes received during a reindex', async () => {
+    const { helper, store } = createHelper();
+    let markStarted!: () => void;
+    let releaseFirst!: () => void;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const firstLoad = new Promise<never[]>((resolve) => {
+      releaseFirst = () => resolve([]);
+    });
+    store.loadContents
+      .mockImplementationOnce(() => {
+        markStarted();
+
+        return firstLoad;
+      })
+      .mockResolvedValueOnce([]);
+
+    const first = helper.handleSettingsChanged({
+      label: 'embedding_model',
+    } as never);
+    await started;
+    const second = helper.handleSettingsChanged({
+      label: 'chunk_size',
+    } as never);
+
+    releaseFirst();
+    await Promise.all([first, second]);
+
+    expect(store.loadContents).toHaveBeenCalledTimes(2);
   });
 
   it('removes inactive content instead of transmitting it to the provider', async () => {

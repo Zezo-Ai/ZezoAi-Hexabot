@@ -47,6 +47,8 @@ const chunks = quoteIdentifier(SQLITE_VECTOR_CHUNKS_TABLE);
 export class SqliteVectorStore extends ContentSearchStore {
   private infrastructureReady = false;
 
+  private infrastructurePromise?: Promise<void>;
+
   private extensionLoaded = false;
 
   get databaseType(): string {
@@ -64,6 +66,16 @@ export class SqliteVectorStore extends ContentSearchStore {
       return;
     }
 
+    this.infrastructurePromise ??= this.initializeInfrastructure().catch(
+      (error) => {
+        this.infrastructurePromise = undefined;
+        throw error;
+      },
+    );
+    await this.infrastructurePromise;
+  }
+
+  private async initializeInfrastructure(): Promise<void> {
     await this.loadVectorExtension();
 
     const queryRunner = this.dataSource.createQueryRunner();
