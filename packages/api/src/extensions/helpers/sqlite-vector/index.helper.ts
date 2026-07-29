@@ -136,18 +136,40 @@ export default class SqliteVectorRagHelper extends BaseRagHelper<
 
   async index(content: ContentFull): Promise<void> {
     await this.indexMutex.runExclusive(async () => {
-      const settings = await this.getConfiguration();
-      await this.indexContent(content, settings, this.getProfile(settings));
+      const settings = await this.getParsedSettings();
+      if (settings.index_only_active_content && !content.status) {
+        await this.store.remove(content.id);
+
+        return;
+      }
+      const configuration = await this.resolveCredential(settings);
+      await this.indexContent(
+        content,
+        configuration,
+        this.getProfile(settings),
+      );
     });
   }
 
   async reindex(): Promise<void> {
     await this.indexMutex.runExclusive(async () => {
-      const settings = await this.getConfiguration();
+      const settings = await this.getParsedSettings();
       const profile = this.getProfile(settings);
       const contents = await this.store.loadContents();
+      const embeddable: SqliteVectorContent[] = [];
       for (const content of contents) {
-        await this.indexContent(content, settings, profile);
+        if (settings.index_only_active_content && !content.status) {
+          await this.store.remove(content.id);
+        } else {
+          embeddable.push(content);
+        }
+      }
+      if (embeddable.length === 0) {
+        return;
+      }
+      const configuration = await this.resolveCredential(settings);
+      for (const content of embeddable) {
+        await this.indexContent(content, configuration, profile);
       }
     });
   }
@@ -248,6 +270,10 @@ export default class SqliteVectorRagHelper extends BaseRagHelper<
   }
 
   private async getConfiguration(): Promise<SqliteVectorSettings> {
+    return this.resolveCredential(await this.getParsedSettings());
+  }
+
+  private async getParsedSettings(): Promise<SqliteVectorSettings> {
     const result = sqliteVectorSettingsSchema.safeParse(
       await this.getSettings<typeof SQLITE_VECTOR_RAG_HELPER_NAME>(),
     );
@@ -257,7 +283,16 @@ export default class SqliteVectorRagHelper extends BaseRagHelper<
       );
     }
 
-    const settings = result.data;
+    return {
+      ...result.data,
+      embedding_model: result.data.embedding_model.trim(),
+      embedding_base_url: result.data.embedding_base_url.replace(/\/+$/, ''),
+    };
+  }
+
+  private async resolveCredential(
+    settings: SqliteVectorSettings,
+  ): Promise<SqliteVectorSettings> {
     const credentialId = settings.embedding_api_key.trim();
     if (!credentialId) {
       throw new RagHelperConfigurationError(
@@ -276,8 +311,6 @@ export default class SqliteVectorRagHelper extends BaseRagHelper<
     return {
       ...settings,
       embedding_api_key: apiKey,
-      embedding_model: settings.embedding_model.trim(),
-      embedding_base_url: settings.embedding_base_url.replace(/\/+$/, ''),
     };
   }
 

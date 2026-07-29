@@ -360,6 +360,51 @@ describe('SqliteVectorRagHelper', () => {
     expect(embedMany).not.toHaveBeenCalled();
   });
 
+  it('removes inactive content when the credential setting is missing', async () => {
+    const { credentialService, helper, settingService, store } = createHelper();
+    settingService.getSettings.mockResolvedValue(
+      settingsWith({ embedding_api_key: '' }),
+    );
+
+    await helper.index({
+      id: 'c1',
+      searchText: 'draft body',
+      status: false,
+    } as never);
+
+    expect(store.remove).toHaveBeenCalledWith('c1');
+    expect(credentialService.findOneValue).not.toHaveBeenCalled();
+  });
+
+  it('removes inactive content when the selected credential is empty', async () => {
+    const { credentialService, helper, store } = createHelper();
+    credentialService.findOneValue.mockResolvedValue('');
+
+    await helper.index({
+      id: 'c1',
+      searchText: 'draft body',
+      status: false,
+    } as never);
+
+    expect(store.remove).toHaveBeenCalledWith('c1');
+    expect(credentialService.findOneValue).not.toHaveBeenCalled();
+  });
+
+  it('removes inactive corpus entries without resolving a credential', async () => {
+    const { credentialService, helper, settingService, store } = createHelper();
+    settingService.getSettings.mockResolvedValue(
+      settingsWith({ embedding_api_key: '' }),
+    );
+    store.loadContents.mockResolvedValue([
+      { id: 'c1', searchText: 'draft body', status: false },
+    ]);
+
+    await helper.reindex();
+
+    expect(store.remove).toHaveBeenCalledWith('c1');
+    expect(credentialService.findOneValue).not.toHaveBeenCalled();
+  });
+
   it('embeds inactive content when index_only_active_content is disabled', async () => {
     const { helper, settingService, store } = createHelper();
     settingService.getSettings.mockResolvedValue(
