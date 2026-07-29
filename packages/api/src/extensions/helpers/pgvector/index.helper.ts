@@ -27,7 +27,6 @@ import { BaseRagHelper } from '@/helper/lib/base-rag-helper';
 import { HelperType } from '@/helper/types';
 import { CredentialService } from '@/user/services/credential.service';
 
-import { chunkSearchText } from './chunker';
 import {
   PGVECTOR_RAG_HELPER_NAME,
   pgvectorSettingsSchema,
@@ -305,7 +304,7 @@ export default class PgvectorRagHelper
         return;
       }
 
-      const chunks = chunkSearchText(
+      const chunks = this.chunkSearchText(
         content.searchText,
         settings.chunk_size,
         settings.chunk_overlap,
