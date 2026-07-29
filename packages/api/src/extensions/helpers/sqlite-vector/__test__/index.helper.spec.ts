@@ -312,6 +312,39 @@ describe('SqliteVectorRagHelper', () => {
     expect(store.loadContents).toHaveBeenCalledTimes(2);
   });
 
+  it('runs a pending settings reindex after the current one fails', async () => {
+    const { helper, logger, store } = createHelper();
+    let markStarted!: () => void;
+    let rejectFirst!: (error: Error) => void;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const firstLoad = new Promise<never[]>((_, reject) => {
+      rejectFirst = reject;
+    });
+    store.loadContents
+      .mockImplementationOnce(() => {
+        markStarted();
+
+        return firstLoad;
+      })
+      .mockResolvedValueOnce([]);
+
+    const first = helper.handleSettingsChanged({
+      label: 'embedding_model',
+    } as never);
+    await started;
+    const second = helper.handleSettingsChanged({
+      label: 'chunk_size',
+    } as never);
+
+    rejectFirst(new Error('temporary failure'));
+    await Promise.all([first, second]);
+
+    expect(store.loadContents).toHaveBeenCalledTimes(2);
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
   it('removes inactive content instead of transmitting it to the provider', async () => {
     const { helper, store } = createHelper();
     const content = {

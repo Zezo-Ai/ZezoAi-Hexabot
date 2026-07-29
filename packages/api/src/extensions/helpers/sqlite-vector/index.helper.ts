@@ -195,9 +195,18 @@ export default class SqliteVectorRagHelper extends BaseRagHelper<
   }
 
   private async runSettingsReindexes(): Promise<void> {
+    let lastError: unknown;
     while (this.settingsReindexRequested) {
       this.settingsReindexRequested = false;
-      await this.reindex();
+      try {
+        await this.reindex();
+        lastError = undefined;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    if (lastError) {
+      throw lastError;
     }
   }
 
