@@ -54,7 +54,7 @@ export const ResetPasswordRequest = () => {
   return (
     <PublicContentWrapper>
       <form onSubmit={handleSubmit(onSubmitForm)}>
-        <ContentContainer gap={2}>
+        <ContentContainer>
           <Title title={t("title.reset_password")} Icon={SendHorizontal} />
           <TextField
             label={t("label.email")}

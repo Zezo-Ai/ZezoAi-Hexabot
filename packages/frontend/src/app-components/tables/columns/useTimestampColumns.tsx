@@ -4,51 +4,57 @@
  * Full terms: see LICENSE.md.
  */
 
-import { GridColDef, GridValidRowModel } from "@mui/x-data-grid";
+import { Stack, Typography } from "@mui/material";
+import {
+  GridColDef,
+  GridRenderCellParams,
+  GridValidRowModel,
+} from "@mui/x-data-grid";
 import { useMemo } from "react";
 
 import { useTranslate } from "@/hooks/useTranslate";
-import { getDateTimeFormatter } from "@/utils/date";
+import { TTranslationKeys } from "@/i18n/i18n.types";
+import { normalizeDate } from "@/utils/date";
 
-const TIMESTAMP_COLUMN_WIDTH = 140;
+type TimestampField = "createdAt" | "updatedAt";
 
-/**
- * Returns the standard `createdAt` / `updatedAt` DataGrid columns shared by
- * every entity list screen. Spread the result into a `columns` array, e.g.
- * `[...baseColumns, ...useTimestampColumns<Label>(), actionColumns]`.
- *
- * The returned array is memoized and only changes when the active locale
- * changes, so it is safe to include in downstream `useMemo` dep arrays.
- */
 export const useTimestampColumns = <T extends GridValidRowModel>(
-  filter?: "createdAt" | "updatedAt",
+  filter?: TimestampField,
+  headerI18nTitles?: Partial<Record<TimestampField, TTranslationKeys>>,
 ): GridColDef<T>[] => {
-  const { t } = useTranslate();
+  const { i18n, t } = useTranslate();
+  const { createdAt, updatedAt } = headerI18nTitles ?? {};
 
-  return useMemo<GridColDef<T>[]>(() => {
-    const all: GridColDef<T>[] = [
-      {
-        width: TIMESTAMP_COLUMN_WIDTH,
-        field: "createdAt",
-        headerName: t("label.createdAt"),
-        disableColumnMenu: true,
-        resizable: false,
-        headerAlign: "left",
-        valueGetter: (value: Date) =>
-          t("datetime.created_at", getDateTimeFormatter(value)),
-      },
-      {
-        width: TIMESTAMP_COLUMN_WIDTH,
-        field: "updatedAt",
-        headerName: t("label.updatedAt"),
-        disableColumnMenu: true,
-        resizable: false,
-        headerAlign: "left",
-        valueGetter: (value: Date) =>
-          t("datetime.updated_at", getDateTimeFormatter(value)),
-      },
-    ];
-
-    return filter ? all.filter((c) => c.field === filter) : all;
-  }, [t, filter]);
+  return useMemo<GridColDef<T>[]>(
+    () =>
+      (["createdAt", "updatedAt"] as const)
+        .filter((f) => !filter || f === filter)
+        .map((field) => ({
+          width: 150,
+          field,
+          disableColumnMenu: true,
+          resizable: false,
+          headerAlign: "left",
+          headerName: t(headerI18nTitles?.[field] ?? `label.${field}`),
+          renderCell: ({ value }: GridRenderCellParams<T, Date | string>) => (
+            <Stack>
+              <Typography>
+                {normalizeDate(i18n.language, value, {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                })}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {normalizeDate(i18n.language, value, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false,
+                })}
+              </Typography>
+            </Stack>
+          ),
+        })),
+    [i18n.language, t, filter, createdAt, updatedAt],
+  );
 };

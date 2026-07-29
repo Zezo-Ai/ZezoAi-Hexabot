@@ -41,7 +41,11 @@ export const Menu = () => {
 
   return (
     <Grid container gap={3} flexDirection="column">
-      <PageHeader icon={MenuIcon} title={t("title.manage_persistent_menu")}>
+      <PageHeader
+        icon={MenuIcon}
+        title={t("title.manage_persistent_menu")}
+        description={t("message.page_description.menu")}
+      >
         <Grid
           justifyContent="flex-end"
           gap={1}

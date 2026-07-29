@@ -17,6 +17,7 @@ export type BadgeWithTitleProps = {
   background?: string;
   width?: string;
   height?: string;
+  radius?: string | number;
   selected?: boolean;
   disableTooltip?: boolean;
   padding?: string;
@@ -44,6 +45,7 @@ export const Badge = ({
   color,
   height = "24px",
   width = "24px",
+  radius,
   title,
   selected,
   disableTooltip,
@@ -75,7 +77,8 @@ export const Badge = ({
             `2px solid ${selected ? theme.alpha(theme.vars.palette.primary.main, 0.8) : theme.alpha(theme.vars.palette.text.primary, 0.05)}`,
           background: `color-mix(in srgb, transparent, ${color} ${selected ? "25%" : "10%"})`,
           flexShrink: 0,
-          borderRadius: (theme) => (theme.shape.borderRadius as number) + 1,
+          borderRadius:
+            radius ?? ((theme) => (theme.shape.borderRadius as number) + 1),
           transform: selected ? "scale(1.1)" : "scale(1)",
           transition: "0.2s",
           ...(isLoading && { animation: "rotate infinite 700ms linear" }),

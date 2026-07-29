@@ -46,7 +46,7 @@ export const aiModelBindingSchema = z.strictObject({
       'ui:options': {
         showWhen: {
           field: 'provider',
-          in: ['gateway', 'litellm'],
+          in: ['gateway', 'litellm', 'openai-compatible'],
         },
       },
     }),

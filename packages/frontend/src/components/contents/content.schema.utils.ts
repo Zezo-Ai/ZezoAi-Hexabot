@@ -7,7 +7,7 @@
 import { AttachmentResourceRef } from "@hexabot-ai/types";
 import { RJSFSchema } from "@rjsf/utils";
 
-import { getSchemaProperties } from "@/app-components/inputs/JsonSchemaForm";
+import { getSchemaProperties } from "@/app-components/inputs/JsonSchemaForm/schema-defaults.utils";
 import { type JsonSchemaType } from "@/app-components/inputs/JsonSchemaObjectBuilder";
 
 import { type ContentFormData } from "./ContentForm";
@@ -15,7 +15,6 @@ import { type ContentFormData } from "./ContentForm";
 export type ContentField = {
   title: string;
   type: JsonSchemaType<"fieldInput">;
-  name: string;
 };
 
 export type ContentSchemaProperties = Record<string, ContentField>;
@@ -111,10 +110,9 @@ const buildContentFieldSchema = (
 };
 
 export const buildContentSchema = (rjsfSchema: RJSFSchema) => {
-  const properties = getSchemaProperties<ContentSchemaProperties>(rjsfSchema);
-  const requiredFields = new Set(
-    Array.isArray(rjsfSchema?.required) ? rjsfSchema.required : [],
-  );
+  const properties =
+    getSchemaProperties<ContentSchemaProperties>(rjsfSchema) ?? {};
+  const requiredFields = new Set(["title", ...(rjsfSchema.required ?? [])]);
   const schemaProperties: Record<string, RJSFSchema> = {
     contentType: {
       type: "string",
@@ -123,7 +121,7 @@ export const buildContentSchema = (rjsfSchema: RJSFSchema) => {
     },
   };
 
-  for (const [propertyKey, property] of Object.entries(properties || {})) {
+  for (const [propertyKey, property] of Object.entries(properties)) {
     schemaProperties[propertyKey] = buildContentFieldSchema(
       propertyKey,
       property,
@@ -134,7 +132,7 @@ export const buildContentSchema = (rjsfSchema: RJSFSchema) => {
   return {
     type: "object",
     properties: schemaProperties,
-    required: rjsfSchema?.["required"] || [],
+    required: [...requiredFields],
   } as RJSFSchema;
 };
 

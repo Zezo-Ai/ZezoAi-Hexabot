@@ -89,6 +89,11 @@ export interface ActionColumn<T extends GridValidRowModel> {
 }
 
 const ACTION_ICON_SIZE = 18;
+// Mirrors the button size, gap and cell padding set in theme/customizations/dataGrid.
+const ACTION_BUTTON_WIDTH = 40;
+const ACTION_BUTTON_GAP = 4;
+const ACTION_CELL_PADDING = 24;
+const ACTION_COLUMN_MIN_WIDTH = 144;
 
 function StackComponent<T extends GridValidRowModel>({
   actions,
@@ -137,12 +142,22 @@ export const getActionsColumn = <T extends GridValidRowModel>(
   actions: ActionColumn<T>[],
   headerName: string,
 ): GridColDef<T> => {
+  const width = Math.max(
+    ACTION_COLUMN_MIN_WIDTH,
+    actions.length * (ACTION_BUTTON_WIDTH + ACTION_BUTTON_GAP) -
+      ACTION_BUTTON_GAP +
+      ACTION_CELL_PADDING * 2,
+  );
+
   return {
     field: "actions",
     headerName,
     sortable: false,
-    align: "left",
-    headerAlign: "left",
+    flex: 0,
+    width,
+    resizable: false,
+    align: "center",
+    headerAlign: "center",
     renderCell: (params) => (
       <StackComponent actions={actions} params={params} />
     ),

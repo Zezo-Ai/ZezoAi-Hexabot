@@ -7,8 +7,26 @@
 import { normalize } from "normalizr";
 import { describe, expect, it } from "vitest";
 
-import { RagHelperEntity } from "./entities";
+import { ContentTypeEntity, RagHelperEntity } from "./entities";
 import { EntityType, normalizeEntity } from "./types";
+
+describe("ContentType entity", () => {
+  it("normalizes timestamps as dates", () => {
+    const createdAt = "2026-07-27T08:32:11.261Z";
+    const updatedAt = "2026-07-27T15:09:25.884Z";
+    const normalized = normalize(
+      [{ id: "content-type-id", name: "Article", createdAt, updatedAt }],
+      [ContentTypeEntity],
+    );
+    const contentType =
+      normalized.entities?.[EntityType.CONTENT_TYPE]?.["content-type-id"];
+
+    expect(contentType).toMatchObject({
+      createdAt: new Date(createdAt),
+      updatedAt: new Date(updatedAt),
+    });
+  });
+});
 
 describe("RagHelper entity", () => {
   it("normalizes helpers by name", () => {

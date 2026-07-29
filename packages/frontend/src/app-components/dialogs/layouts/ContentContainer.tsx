@@ -14,7 +14,7 @@ export const ContentContainer: FC<ContentContainerProps> = ({
   children,
   ...rest
 }) => (
-  <Grid container gap={1} direction="column" {...rest}>
+  <Grid container gap={2} direction="column" {...rest}>
     {children}
   </Grid>
 );

@@ -16,7 +16,10 @@ import { useWorkflowActionsCatalog } from "@/contexts/workflow-actions.context";
 import { useTranslate } from "@/hooks/useTranslate";
 
 import { useWorkflow } from "../../../hooks/useWorkflow";
-import { normalizeBindingName } from "../../../utils/binding-name.utils";
+import {
+  isDefinitionNameAvailable,
+  normalizeDefinitionName,
+} from "../../../utils/definition-name.utils";
 import { buildSettingsUiSchema } from "../../../utils/settings-ui-schema.utils";
 import {
   createToolBindingDefinitionMutation,
@@ -207,7 +210,7 @@ export const ToolFormDrawer = ({ target, onClose }: ToolFormDrawerProps) => {
     [actionSchema?.settingSchema],
   );
   const normalizedToolName = useMemo(
-    () => normalizeBindingName(toolNameValue),
+    () => normalizeDefinitionName(toolNameValue),
     [toolNameValue],
   );
   const toolNameError = useMemo(() => {
@@ -226,10 +229,10 @@ export const ToolFormDrawer = ({ target, onClose }: ToolFormDrawerProps) => {
     const currentName = target.mode === "edit" ? target.bindingName : undefined;
 
     if (
-      currentName !== normalizedToolName &&
-      Object.prototype.hasOwnProperty.call(
-        definition?.defs ?? {},
+      !isDefinitionNameAvailable(
         normalizedToolName,
+        definition?.defs,
+        currentName,
       )
     ) {
       return t("visual_editor.tool_drawer.form.tool_id.errors.unique");
@@ -297,7 +300,7 @@ export const ToolFormDrawer = ({ target, onClose }: ToolFormDrawerProps) => {
     handleClose();
   };
   const handleToolNameCommit = (nextToolName: string) => {
-    const nextNormalizedToolName = normalizeBindingName(nextToolName);
+    const nextNormalizedToolName = normalizeDefinitionName(nextToolName);
 
     setToolNameValue(nextNormalizedToolName || "");
   };

@@ -152,7 +152,13 @@ describe('AiAgentAction', () => {
       response: { status: 200 },
       providerMetadata: { latency: 123 },
       warnings: ['warn'],
-      steps: [{ id: 'step-1' }],
+      steps: [
+        {
+          id: 'step-1',
+          toolCalls: [{ toolName: 'search', args: {} }],
+          toolResults: [{ toolName: 'search', result: { value: 1 } }],
+        },
+      ],
     } as any);
 
     const settings = {
@@ -259,7 +265,13 @@ describe('AiAgentAction', () => {
         output_token_details: undefined,
         raw: undefined,
       },
-      steps: [{ id: 'step-1' }],
+      steps: [
+        {
+          id: 'step-1',
+          toolCalls: [{ toolName: 'search', args: {} }],
+          toolResults: [{ toolName: 'search', result: { value: 1 } }],
+        },
+      ],
       raw: {
         request: { foo: 'req' },
         response: { status: 200 },
@@ -315,6 +327,7 @@ describe('AiAgentAction', () => {
       text: 'Agent reply',
       finishReason: 'stop',
       rawFinishReason: 'stop',
+      steps: [],
     } as any);
 
     const settings = {

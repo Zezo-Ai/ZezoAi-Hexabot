@@ -4,13 +4,15 @@
  * Full terms: see LICENSE.md.
  */
 
-import { Chip } from "@mui/material";
+import { Chip, useMediaQuery } from "@mui/material";
 import Grid from "@mui/material/Grid";
+import type { Theme } from "@mui/material/styles";
 import {
   DataGridProps,
   GridColDef,
   GridRowSelectionModel,
 } from "@mui/x-data-grid";
+import snakeCase from "lodash/snakeCase";
 import { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -32,7 +34,7 @@ import {
 import { FilterTextfield } from "../inputs/FilterTextfield";
 
 import { DataGrid } from "./DataGrid";
-import { type Filter, GenericFilters } from "./GenericFilters";
+import { type Filter, ResponsiveGenericFilters } from "./GenericFilters";
 
 export const GenericDataGrid = <
   TP extends THook["params"],
@@ -45,12 +47,10 @@ export const GenericDataGrid = <
   headerIcon,
   searchParams,
   initialSortState,
-  initialPaginationState = {
-    page: 0,
-    pageSize: 10,
-  },
+  initialPaginationState = { page: 0, pageSize: 10 },
   format,
   headerI18nTitle,
+  headerI18nDescription,
   headerTitleChip,
   headerLeftButtons,
   footerControls,
@@ -69,6 +69,7 @@ export const GenericDataGrid = <
   format?: F;
   columns: GridColDef<THook<{ entity: TE; format: F }>["current"]>[];
   headerI18nTitle?: TTranslationKeys;
+  headerI18nDescription?: TTranslationKeys;
   headerTitleChip?: string;
   headerLeftButtons?: React.ReactElement;
   footerControls?: ReactNode;
@@ -78,28 +79,32 @@ export const GenericDataGrid = <
 } & Pick<IFindConfigProps<TE>, "initialSortState" | "initialPaginationState"> &
   DataGridProps) => {
   const { t } = useTranslate();
-  const { dataGridProps, onSearch, searchText } = useDataGridProps(
-    {
-      entity,
-      format: format as any,
-    },
-    {
-      searchParams,
-      initialSortState,
-      initialPaginationState,
-    },
+  const isSmallView = useMediaQuery(
+    (theme: Theme) => theme.breakpoints.down("md"),
+    { noSsr: true },
   );
+  const { dataGridProps, onSearch, searchText } = useDataGridProps(
+    { entity, format: format as any },
+    { searchParams, initialSortState, initialPaginationState },
+  );
+  const descriptionKey =
+    headerI18nDescription ??
+    (`message.page_description.${snakeCase(entity)}` as TTranslationKeys);
 
   return (
-    <Grid width="100%">
-      <Grid container={!!headerI18nTitle} flexDirection="column" gap={3}>
+    <Grid width="100%" minWidth={0}>
+      <Grid
+        container={!!headerI18nTitle}
+        flexDirection="column"
+        gap={3}
+        minWidth={0}
+      >
         <PageHeader
           icon={headerIcon}
           title={headerI18nTitle && t(headerI18nTitle)}
+          description={headerI18nTitle && t(descriptionKey)}
           chip={
-            headerTitleChip ? (
-              <Chip label={headerTitleChip} size="medium" />
-            ) : null
+            headerTitleChip && <Chip label={headerTitleChip} size="medium" />
           }
           headerLeftButtons={headerLeftButtons}
         >
@@ -107,21 +112,37 @@ export const GenericDataGrid = <
             gap={1}
             container
             flexWrap="nowrap"
+            flexGrow={isSmallView ? 1 : 0}
             width="auto"
             justifyContent="end"
+            alignItems="flex-end"
+            sx={{ "& .MuiInputLabel-root.MuiInputLabel-root": { mb: 0.25 } }}
           >
-            {hasTextFilter ? (
-              <FilterTextfield onChange={onSearch} defaultValue={searchText} />
-            ) : null}
-            {filters?.length ? <GenericFilters filters={filters} /> : null}
-            <Grid size="auto" alignContent="end">
-              {buttons ? (
+            {hasTextFilter && (
+              <FilterTextfield
+                onChange={onSearch}
+                defaultValue={searchText}
+                sx={{
+                  minWidth: { xs: 0, sm: 280 },
+                  ...(isSmallView ? { flex: 1 } : { width: "auto" }),
+                }}
+              />
+            )}
+            {filters?.length && <ResponsiveGenericFilters filters={filters} />}
+            {buttons && (
+              <Grid size="auto" alignContent="end">
                 <ButtonActionsGroup entity={entity} buttons={buttons} />
-              ) : null}
-            </Grid>
+              </Grid>
+            )}
           </Grid>
         </PageHeader>
-        <Grid container flexDirection="column" gap={1}>
+        <Grid
+          container
+          flexDirection="column"
+          gap={1}
+          width="100%"
+          minWidth={0}
+        >
           <DataGrid
             columns={columns}
             {...dataGridProps}
@@ -129,11 +150,11 @@ export const GenericDataGrid = <
             onRowSelectionModelChange={selectionChangeHandler}
             {...restDataGridProps}
           />
-          {footerControls ? (
+          {footerControls && (
             <Grid container justifyContent="flex-end">
               {footerControls}
             </Grid>
-          ) : null}
+          )}
         </Grid>
       </Grid>
     </Grid>

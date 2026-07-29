@@ -11,7 +11,7 @@ import {
   Workflow as WorkflowHelper,
 } from '@hexabot-ai/agentic';
 import { Workflow } from '@hexabot-ai/types';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { JSONSchema7 as JsonSchema } from 'json-schema';
 
 import {
@@ -184,8 +184,17 @@ describe('WorkflowService (TypeORM)', () => {
       schedule: null,
       createdBy: creatorId,
     };
+    const createDuplicate = workflowService.create(duplicatePayload);
 
-    await expect(workflowService.create(duplicatePayload)).rejects.toThrow();
+    await expect(createDuplicate).rejects.toBeInstanceOf(ConflictException);
+    await expect(createDuplicate).rejects.toMatchObject({
+      status: 409,
+      response: {
+        statusCode: 409,
+        error: 'Conflict',
+        message: `Workflow "${workflow.name}" already exists`,
+      },
+    });
   });
 
   it('keeps the fixed conversational input schema on create', async () => {

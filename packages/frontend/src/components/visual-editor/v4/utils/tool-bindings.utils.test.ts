@@ -8,10 +8,6 @@ import type { WorkflowDefinition } from "@hexabot-ai/agentic";
 import { describe, expect, it } from "vitest";
 
 import {
-  createUniqueBindingName,
-  normalizeBindingName,
-} from "./binding-name.utils";
-import {
   createToolBindingDefinitionMutation,
   updateToolBindingDefinitionMutation,
 } from "./tool-bindings.utils";
@@ -85,23 +81,6 @@ describe("tool-bindings.utils", () => {
       "search",
       "calculate",
     ]);
-  });
-
-  it("creates unique default tool names from action names", () => {
-    const definition = createDefinition();
-
-    expect(
-      createUniqueBindingName(
-        normalizeBindingName("search") || "tool",
-        definition.defs,
-      ),
-    ).toBe("search_2");
-    expect(
-      createUniqueBindingName(
-        normalizeBindingName("Calculate Score") || "tool",
-        definition.defs,
-      ),
-    ).toBe("calculate_score");
   });
 
   it("updates an existing tool settings and description", () => {

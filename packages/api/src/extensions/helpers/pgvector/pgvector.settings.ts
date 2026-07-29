@@ -50,7 +50,7 @@ export const pgvectorSettingsSchema = z
         'ui:options': {
           showWhen: {
             field: 'embedding_provider',
-            in: ['gateway', 'litellm'],
+            in: ['gateway', 'litellm', 'openai-compatible'],
           },
         },
       }),

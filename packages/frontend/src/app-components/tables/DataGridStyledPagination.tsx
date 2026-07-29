@@ -9,20 +9,15 @@
 
 import {
   Pagination as MuiPagination,
-  PaginationItem,
-  PaginationItemProps,
   TablePaginationProps,
 } from "@mui/material";
 import {
   DataGridProps,
-  GridFooter,
   gridPageCountSelector,
   GridPagination,
   useGridApiContext,
   useGridSelector,
 } from "@mui/x-data-grid";
-
-import { theme } from "@/layout/theme";
 
 function Pagination({
   page,
@@ -39,21 +34,6 @@ function Pagination({
       showFirstButton
       showLastButton
       shape="rounded"
-      renderItem={(props: PaginationItemProps) => (
-        <PaginationItem
-          {...props}
-          sx={{
-            ":is(.Mui-selected)": {
-              fontWeight: "bold",
-              color: theme.palette.primary.main,
-            },
-
-            ":hover": {
-              color: theme.palette.primary.dark,
-            },
-          }}
-        />
-      )}
       page={page + 1}
       siblingCount={2}
       onChange={(event, newPage) => {
@@ -71,7 +51,4 @@ function StyledPagination(props: any) {
 
 export const styledPaginationSlots: DataGridProps["slots"] = {
   pagination: StyledPagination,
-  footer: (props: any) => {
-    return <GridFooter sx={{ justifyContent: "start" }} {...props} />;
-  },
 };

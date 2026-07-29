@@ -59,7 +59,7 @@ export const AuthenticatedLayout: React.FC<
 
   return (
     <WorkflowEventProvider>
-      <Box display="flex">
+      <Box display="flex" width="100%" maxWidth="100vw" overflow="hidden">
         <DashboardHeader
           logo={<HexabotLogo />}
           menuOpen={isDesktopNavigationExpanded}
@@ -79,8 +79,12 @@ export const AuthenticatedLayout: React.FC<
             display: "flex",
             flexDirection: "column",
             flex: 1,
-            overflow: "auto",
-            width: "calc(100% - 88px)",
+            minWidth: 0,
+            maxWidth: "100%",
+            boxSizing: "border-box",
+            overflowX: "hidden",
+            overflowY: "auto",
+            width: 0,
             zIndex: 5,
           }}
         >

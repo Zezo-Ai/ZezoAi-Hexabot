@@ -31,6 +31,7 @@ import {
   Controller,
   useFieldArray,
   useFormContext,
+  useFormState,
   useWatch,
 } from "react-hook-form";
 
@@ -260,6 +261,8 @@ type SchemaNodeEditorProps<C extends JsonSchemaOptionContext = "default"> = {
   readOnly?: boolean;
   context?: C;
 };
+
+const ReadOnlyPropertyKeysContext = React.createContext<readonly string[]>([]);
 
 function SchemaNodeEditor<C extends JsonSchemaOptionContext = "default">({
   name,
@@ -515,7 +518,9 @@ function ObjectSchemaBody<C extends JsonSchemaOptionContext = "default">({
     control,
     name: propertiesPath,
   });
+  const [newPropertyIndex, setNewPropertyIndex] = React.useState(-1);
   const addProperty = () => {
+    setNewPropertyIndex(fields.length);
     append({
       key: "",
       required: false,
@@ -554,6 +559,7 @@ function ObjectSchemaBody<C extends JsonSchemaOptionContext = "default">({
               depth={depth}
               maxDepth={maxDepth}
               readOnly={readOnly}
+              defaultExpanded={index === newPropertyIndex}
               getAllProperties={() =>
                 (getValues(propertiesPath) as PropertyEntryForm[]) ?? []
               }
@@ -573,6 +579,7 @@ function PropertyEntryEditor<C extends JsonSchemaOptionContext = "default">({
   depth,
   maxDepth,
   readOnly,
+  defaultExpanded,
   getAllProperties,
   context,
 }: {
@@ -582,12 +589,17 @@ function PropertyEntryEditor<C extends JsonSchemaOptionContext = "default">({
   depth: number;
   maxDepth: number;
   readOnly: boolean;
+  defaultExpanded: boolean;
   getAllProperties: () => PropertyEntryForm[];
   context?: C;
 }) {
-  const { control, setValue } = useFormContext();
+  const { control, getFieldState, setValue } = useFormContext();
   const { t } = useTranslate();
   const entryPath = `${objectName}.properties.${index}`;
+  const propertyFormState = useFormState({ control, name: entryPath });
+  const hasError = getFieldState(entryPath, propertyFormState).invalid;
+  const [expanded, setExpanded] = React.useState(defaultExpanded);
+  const { submitCount } = propertyFormState;
   const keyValue = useWatch({
     control,
     name: `${entryPath}.key`,
@@ -600,6 +612,10 @@ function PropertyEntryEditor<C extends JsonSchemaOptionContext = "default">({
     control,
     name: `${entryPath}.schema.type`,
   }) as JsonSchemaType | undefined;
+  const readOnlyPropertyKeys = React.useContext(ReadOnlyPropertyKeysContext);
+  const readOnlyProperty =
+    depth === 0 && readOnlyPropertyKeys.includes(keyValue ?? "");
+  const isReadOnly = readOnly || readOnlyProperty;
   const previousKeyRef = React.useRef<string | undefined>(undefined);
   const summaryKey = keyValue?.trim()
     ? keyValue.trim()
@@ -609,7 +625,11 @@ function PropertyEntryEditor<C extends JsonSchemaOptionContext = "default">({
   const summary = summaryKey + (schemaType ? ` : ${schemaTypeLabel}` : "");
 
   React.useEffect(() => {
-    if (readOnly) {
+    if (hasError) setExpanded(true);
+  }, [hasError, submitCount]);
+
+  React.useEffect(() => {
+    if (isReadOnly) {
       return;
     }
 
@@ -639,12 +659,26 @@ function PropertyEntryEditor<C extends JsonSchemaOptionContext = "default">({
     }
 
     previousKeyRef.current = keyValue;
-  }, [entryPath, keyValue, readOnly, setValue, titleValue]);
+  }, [entryPath, isReadOnly, keyValue, setValue, titleValue]);
 
   return (
-    <Accordion>
+    <Accordion
+      expanded={expanded}
+      onChange={(_, value) => setExpanded(value)}
+      sx={{ borderColor: hasError ? "error.main" : undefined }}
+    >
       <AccordionSummary>
-        <Typography variant="subtitle2">{summary}</Typography>
+        <Typography variant="subtitle2" flex={1}>
+          {summary}
+        </Typography>
+        {readOnlyProperty && (
+          <Chip
+            size="small"
+            sx={{ alignSelf: "center" }}
+            icon={<LockIcon size={14} />}
+            label={t("label.read_only", { defaultValue: "Read only" })}
+          />
+        )}
       </AccordionSummary>
 
       <AccordionDetails>
@@ -678,14 +712,14 @@ function PropertyEntryEditor<C extends JsonSchemaOptionContext = "default">({
                   size="small"
                   label={t("label.property_name")}
                   value={field.value ?? ""}
-                  slotProps={{ input: { readOnly } }}
+                  slotProps={{ input: { readOnly: isReadOnly } }}
                   error={Boolean(fieldState.error)}
                   helperText={fieldState.error?.message}
                 />
               )}
             />
 
-            {!readOnly && (
+            {!isReadOnly && (
               <Controller
                 control={control}
                 name={`${entryPath}.required`}
@@ -705,7 +739,7 @@ function PropertyEntryEditor<C extends JsonSchemaOptionContext = "default">({
 
             <Box sx={{ flex: 1 }} />
 
-            {!readOnly && (
+            {!isReadOnly && (
               <IconButton
                 onClick={onRemove}
                 color="error"
@@ -723,7 +757,7 @@ function PropertyEntryEditor<C extends JsonSchemaOptionContext = "default">({
               label={t("label.property_schema")}
               depth={depth + 1}
               maxDepth={maxDepth}
-              readOnly={readOnly}
+              readOnly={isReadOnly}
               context={context}
             />
           </Box>
@@ -777,6 +811,7 @@ export function JsonSchemaObjectBuilder<
   hideTitle = true,
   hideDescription = true,
   readOnly = false,
+  readOnlyPropertyKeys,
   context,
 }: {
   name: string;
@@ -786,6 +821,7 @@ export function JsonSchemaObjectBuilder<
   hideTitle?: boolean;
   hideDescription?: boolean;
   readOnly?: boolean;
+  readOnlyPropertyKeys?: readonly string[];
   context?: C;
 }) {
   const { t } = useTranslate();
@@ -794,7 +830,7 @@ export function JsonSchemaObjectBuilder<
     t("label.json_schema_object", { defaultValue: "JSON Schema (Object)" });
 
   return (
-    <Stack spacing={1}>
+    <ReadOnlyPropertyKeysContext.Provider value={readOnlyPropertyKeys ?? []}>
       <SchemaNodeEditor
         name={name}
         label={resolvedLabel}
@@ -807,6 +843,6 @@ export function JsonSchemaObjectBuilder<
         readOnly={readOnly}
         context={context || "default"}
       />
-    </Stack>
+    </ReadOnlyPropertyKeysContext.Provider>
   );
 }

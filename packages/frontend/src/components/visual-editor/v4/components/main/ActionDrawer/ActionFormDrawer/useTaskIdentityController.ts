@@ -4,19 +4,22 @@
  * Full terms: see LICENSE.md.
  */
 
-import type { TaskDefinition } from "@hexabot-ai/agentic";
+import type { WorkflowDefinition } from "@hexabot-ai/agentic";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useTranslate } from "@/hooks/useTranslate";
 
-import { normalizeTaskName } from "../../../../utils/workflow-definition.utils";
+import {
+  isDefinitionNameAvailable,
+  normalizeDefinitionName,
+} from "../../../../utils/definition-name.utils";
 
 type UseTaskIdentityControllerParams = {
   open: boolean;
   actionName?: string;
   taskName?: string;
   taskDescription?: string;
-  tasks?: Record<string, TaskDefinition>;
+  definitions?: WorkflowDefinition["defs"];
 };
 
 export const useTaskIdentityController = ({
@@ -24,13 +27,13 @@ export const useTaskIdentityController = ({
   actionName,
   taskName,
   taskDescription,
-  tasks,
+  definitions,
 }: UseTaskIdentityControllerParams) => {
   const { t } = useTranslate();
   const [taskNameValue, setTaskNameValue] = useState("");
   const [taskDescriptionValue, setTaskDescriptionValue] = useState("");
   const normalizedTaskName = useMemo(
-    () => normalizeTaskName(taskNameValue),
+    () => normalizeDefinitionName(taskNameValue),
     [taskNameValue],
   );
   const taskNameValidationError = useMemo(() => {
@@ -46,15 +49,12 @@ export const useTaskIdentityController = ({
       return t("visual_editor.actions_drawer.form.step_id.errors.snake_case");
     }
 
-    if (
-      normalizedTaskName !== taskName &&
-      Object.prototype.hasOwnProperty.call(tasks ?? {}, normalizedTaskName)
-    ) {
+    if (!isDefinitionNameAvailable(normalizedTaskName, definitions, taskName)) {
       return t("visual_editor.actions_drawer.form.step_id.errors.unique");
     }
 
     return null;
-  }, [normalizedTaskName, taskName, taskNameValue, tasks, t]);
+  }, [definitions, normalizedTaskName, taskName, taskNameValue, t]);
 
   useEffect(() => {
     if (!open) {
@@ -66,7 +66,7 @@ export const useTaskIdentityController = ({
   }, [open, actionName, taskName, taskDescription]);
 
   const handleTaskNameCommit = useCallback((nextTaskName: string) => {
-    const nextNormalizedTaskName = normalizeTaskName(nextTaskName);
+    const nextNormalizedTaskName = normalizeDefinitionName(nextTaskName);
 
     setTaskNameValue(nextNormalizedTaskName || "");
   }, []);
