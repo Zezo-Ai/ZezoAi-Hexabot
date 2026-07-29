@@ -265,6 +265,7 @@ describe('SqliteVectorRagHelper', () => {
       'c1',
       expect.stringMatching(/^[a-f0-9]{64}$/),
       'body',
+      true,
       [{ index: 0, text: 'body', embedding: [1, 0] }],
     );
   });
@@ -313,8 +314,49 @@ describe('SqliteVectorRagHelper', () => {
       'c1',
       expect.stringMatching(/^[a-f0-9]{64}$/),
       'draft body',
+      false,
       [{ index: 0, text: 'draft body', embedding: [1, 0] }],
     );
+  });
+
+  it('serializes direct indexing operations', async () => {
+    const { helper } = createHelper();
+    let markStarted!: () => void;
+    let releaseEmbedding!: (result: { embeddings: number[][] }) => void;
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const blockedEmbedding = new Promise<{ embeddings: number[][] }>(
+      (resolve) => {
+        releaseEmbedding = resolve;
+      },
+    );
+    (embedMany as jest.Mock)
+      .mockImplementationOnce(() => {
+        markStarted();
+
+        return blockedEmbedding;
+      })
+      .mockResolvedValueOnce({ embeddings: [[0, 1]] });
+
+    const first = helper.index({
+      id: 'c1',
+      searchText: 'first body',
+      status: true,
+    } as never);
+    await started;
+    const second = helper.index({
+      id: 'c2',
+      searchText: 'second body',
+      status: true,
+    } as never);
+    await Promise.resolve();
+
+    expect(embedMany).toHaveBeenCalledTimes(1);
+
+    releaseEmbedding({ embeddings: [[1, 0]] });
+    await Promise.all([first, second]);
+    expect(embedMany).toHaveBeenCalledTimes(2);
   });
 
   it('removes deleted content directly', async () => {

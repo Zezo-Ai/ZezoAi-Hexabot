@@ -113,10 +113,12 @@ describe('SqliteVectorStore', () => {
   describe('save', () => {
     it('writes chunks and drops stale profiles afterwards', async () => {
       const { queryRunner, store } = createStore();
-      queryRunner.query.mockResolvedValueOnce([{ searchText: 'body' }]);
+      queryRunner.query.mockResolvedValueOnce([
+        { searchText: 'body', status: 1 },
+      ]);
 
       await expect(
-        store.save('c1', 'profile-hash', 'body', [
+        store.save('c1', 'profile-hash', 'body', true, [
           { index: 0, text: 'chunk', embedding: [1, 0] },
         ]),
       ).resolves.toBe(true);
@@ -139,10 +141,12 @@ describe('SqliteVectorStore', () => {
 
     it('does not overwrite content changed while embedding', async () => {
       const { queryRunner, store } = createStore();
-      queryRunner.query.mockResolvedValueOnce([{ searchText: 'updated body' }]);
+      queryRunner.query.mockResolvedValueOnce([
+        { searchText: 'updated body', status: 1 },
+      ]);
 
       await expect(
-        store.save('c1', 'profile-hash', 'old body', []),
+        store.save('c1', 'profile-hash', 'old body', true, []),
       ).resolves.toBe(false);
 
       expect(
@@ -150,14 +154,25 @@ describe('SqliteVectorStore', () => {
       ).toBe(false);
     });
 
+    it('does not overwrite content whose status changed while embedding', async () => {
+      const { queryRunner, store } = createStore();
+      queryRunner.query.mockResolvedValueOnce([
+        { searchText: 'body', status: 0 },
+      ]);
+
+      await expect(
+        store.save('c1', 'profile-hash', 'body', true, []),
+      ).resolves.toBe(false);
+    });
+
     it('rolls back a failed write', async () => {
       const { queryRunner, store } = createStore();
       const error = new Error('write failed');
       queryRunner.query.mockRejectedValueOnce(error);
 
-      await expect(store.save('c1', 'profile-hash', 'body', [])).rejects.toBe(
-        error,
-      );
+      await expect(
+        store.save('c1', 'profile-hash', 'body', true, []),
+      ).rejects.toBe(error);
       expect(queryRunner.rollbackTransaction).toHaveBeenCalled();
     });
   });

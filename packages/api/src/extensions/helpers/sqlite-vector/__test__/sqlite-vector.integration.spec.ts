@@ -68,7 +68,7 @@ describeWithSqliteVec('SQLite sqlite-vector RAG integration', () => {
     text: string,
     sourceText: string,
   ): Promise<void> => {
-    await store.save(contentId, PROFILE, sourceText, [
+    await store.save(contentId, PROFILE, sourceText, true, [
       { index: 0, text, embedding },
     ]);
   };
@@ -161,7 +161,7 @@ describeWithSqliteVec('SQLite sqlite-vector RAG integration', () => {
 
   it('returns the closest chunk per document', async () => {
     await insertContent('c1', 'alpha');
-    await store.save('c1', PROFILE, 'alpha', [
+    await store.save('c1', PROFILE, 'alpha', true, [
       { index: 0, text: 'far chunk', embedding: [0, 1, 0] },
       { index: 1, text: 'near chunk', embedding: [1, 0, 0] },
     ]);

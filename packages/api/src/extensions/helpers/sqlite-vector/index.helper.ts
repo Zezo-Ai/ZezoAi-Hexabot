@@ -12,6 +12,7 @@ import type { ContentFull, Setting } from '@hexabot-ai/types';
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { EmbeddingModel, embed, embedMany } from 'ai';
+import { Mutex } from 'async-mutex';
 import { DataSource } from 'typeorm';
 import type z from 'zod';
 
@@ -66,6 +67,8 @@ export default class SqliteVectorRagHelper extends BaseRagHelper<
 > {
   private readonly store: SqliteVectorStore;
 
+  private readonly indexMutex = new Mutex();
+
   private dimensionMismatchWarned = false;
 
   constructor(
@@ -76,13 +79,7 @@ export default class SqliteVectorRagHelper extends BaseRagHelper<
     this.store = new SqliteVectorStore(dataSource);
   }
 
-  /**
-   * Availability is decided by the database driver alone, because helper
-   * registration happens at module init and must be synchronous. Whether
-   * sqlite-vec actually loads on this platform is resolved by the store the
-   * first time it runs, which reports a typed
-   * {@link RagHelperUnavailableError} instead of silently returning nothing.
-   */
+  /** sqlite-vec availability is checked lazily by the store. */
   public override isAvailable(): boolean {
     return isSqliteDatabase(this.dataSource.options.type);
   }
@@ -134,21 +131,25 @@ export default class SqliteVectorRagHelper extends BaseRagHelper<
   }
 
   async index(content: ContentFull): Promise<void> {
-    const settings = await this.getConfiguration();
-    await this.indexContent(content, settings, this.getProfile(settings));
+    await this.indexMutex.runExclusive(async () => {
+      const settings = await this.getConfiguration();
+      await this.indexContent(content, settings, this.getProfile(settings));
+    });
   }
 
   async reindex(): Promise<void> {
-    const settings = await this.getConfiguration();
-    const profile = this.getProfile(settings);
-    const contents = await this.store.loadContents();
-    for (const content of contents) {
-      await this.indexContent(content, settings, profile);
-    }
+    await this.indexMutex.runExclusive(async () => {
+      const settings = await this.getConfiguration();
+      const profile = this.getProfile(settings);
+      const contents = await this.store.loadContents();
+      for (const content of contents) {
+        await this.indexContent(content, settings, profile);
+      }
+    });
   }
 
   async remove(contentId: string): Promise<void> {
-    await this.store.remove(contentId);
+    await this.indexMutex.runExclusive(() => this.store.remove(contentId));
   }
 
   @OnEvent('hook:sqlite-vector:*')
@@ -213,6 +214,7 @@ export default class SqliteVectorRagHelper extends BaseRagHelper<
       content.id,
       profile,
       content.searchText,
+      content.status,
       embeddedChunks,
     );
   }

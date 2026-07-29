@@ -163,6 +163,7 @@ export class SqliteVectorStore extends ContentSearchStore {
     contentId: string,
     profile: string,
     sourceText: string,
+    status: boolean,
     embeddedChunks: SqliteVectorEmbeddedChunk[],
   ): Promise<boolean> {
     await this.assertInfrastructure();
@@ -173,15 +174,17 @@ export class SqliteVectorStore extends ContentSearchStore {
       const table = this.contentTable;
       const idColumn = quoteIdentifier(this.columnName('id'));
       const textColumn = quoteIdentifier(this.columnName('searchText'));
+      const statusColumn = quoteIdentifier(this.columnName('status'));
       const rows = await queryRunner.query(
-        `SELECT ${textColumn} AS "searchText" ` +
+        `SELECT ${textColumn} AS "searchText", ${statusColumn} AS "status" ` +
           `FROM ${table} WHERE ${idColumn} = ?`,
         [contentId],
       );
       if (
         !rows[0] ||
         String((rows[0] as Record<string, unknown>).searchText ?? '') !==
-          sourceText
+          sourceText ||
+        Boolean((rows[0] as Record<string, unknown>).status) !== status
       ) {
         await queryRunner.commitTransaction();
 
