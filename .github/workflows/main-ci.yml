@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: pgvector/pgvector:0.8.2-pg16
+        image: postgres:16
         env:
           POSTGRES_DB: hexabot_test
           POSTGRES_USER: postgres
@@ -58,11 +58,11 @@ jobs:
       - name: 🔬 Unit tests (all packages via Turbo)
         run: pnpm test
 
-      - name: 🐘 PostgreSQL/pgvector RAG integration tests
-        run: pnpm --filter @hexabot-ai/api exec jest --runInBand --runTestsByPath src/extensions/helpers/pgvector/pgvector.integration.spec.ts
+      - name: 🐘 Core migration PostgreSQL integration tests
+        run: pnpm --filter @hexabot-ai/api exec jest --runInBand --runTestsByPath src/migration/migrations/1784815200000-v-3-4-0.integration.spec.ts
         env:
           DB_TYPE: postgres
-          TEST_PGVECTOR_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/hexabot_test
+          TEST_POSTGRES_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/hexabot_test
 
       - name: 🛠️ Build (all packages via Turbo)
         run: pnpm build

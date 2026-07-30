@@ -14,6 +14,10 @@ export * from './lib/base-helper';
 
 export * from './lib/base-rag-helper';
 
+export * from './lib/base-rag-embedding-helper';
+
 export * from './lib/base-storage-helper';
+
+export * from './lib/content-search.store';
 
 export * from './types';

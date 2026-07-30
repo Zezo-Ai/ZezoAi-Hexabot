@@ -1,7 +1,7 @@
 {
   "sqlite-vector": {
     "Vector Search (SQLite)": "Vector Search (SQLite)",
-    "Semantic RAG backed by embeddings stored in SQLite through the sqlite-vec extension. Requires a SQLite database — on PostgreSQL, use the pgvector helper instead.": "Semantic RAG backed by embeddings stored in SQLite through the sqlite-vec extension. Requires a SQLite database — on PostgreSQL, use the pgvector helper instead.",
+    "Semantic RAG backed by embeddings stored in SQLite through the sqlite-vec extension. Requires a SQLite database.": "Semantic RAG backed by embeddings stored in SQLite through the sqlite-vec extension. Requires a SQLite database.",
     "Provider": "Provider",
     "Embedding model": "Embedding model",
     "Credential": "Credential",

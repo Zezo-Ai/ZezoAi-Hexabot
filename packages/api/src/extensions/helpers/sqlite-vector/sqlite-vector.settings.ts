@@ -112,7 +112,7 @@ export const sqliteVectorSettingsSchema = z
   .meta({
     title: 'Vector Search (SQLite)',
     description:
-      'Semantic RAG backed by embeddings stored in SQLite through the sqlite-vec extension. Requires a SQLite database — on PostgreSQL, use the pgvector helper instead.',
+      'Semantic RAG backed by embeddings stored in SQLite through the sqlite-vec extension. Requires a SQLite database.',
   });
 
 declare global {

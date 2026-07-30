@@ -59,7 +59,7 @@ export class SqliteVectorStore extends ContentSearchStore {
     if (!isSqliteDatabase(this.databaseType)) {
       throw new RagHelperUnavailableError(
         `The sqlite-vector RAG helper requires the better-sqlite3 driver, but the database is "${this.databaseType}". ` +
-          'Use the pgvector helper on PostgreSQL.',
+          'Select a RAG helper compatible with the configured database.',
       );
     }
     if (this.infrastructureReady) {
