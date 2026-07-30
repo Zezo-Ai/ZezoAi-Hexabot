@@ -22,10 +22,6 @@ export * from './helpers/local-storage/index.helper';
 
 export * from './helpers/fulltext-search/index.helper';
 
-export * from './helpers/sqlite-vector/index.helper';
-
-export * from './helpers/sqlite-vector/sqlite-vector.settings';
-
 export * from './actions/ai/ai-prompt.helpers';
 
 export * from './actions/ai/ai-schemas';
