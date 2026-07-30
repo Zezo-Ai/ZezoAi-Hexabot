@@ -13,7 +13,7 @@ import { qualifiedName } from '@/helper/lib/content-search.store';
 // search structures — a Postgres GIN expression index over `to_tsvector`, or a
 // SQLite FTS5 virtual table with its sync triggers — so the v3.4.0 migration
 // and any future runtime self-heal share exactly the same DDL and can never
-// drift apart (mirroring `../pgvector/pgvector.provisioning`).
+// drift apart.
 export const CONTENTS_TABLE = 'contents';
 
 export const CONTENTS_FTS_INDEX = 'contents_fts_idx';

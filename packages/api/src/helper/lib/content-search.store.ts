@@ -48,8 +48,8 @@ export const qualifiedName = (
  * Shared persistence boundary for the content-backed RAG search stores.
  *
  * Centralizes the content entity metadata resolution, identifier quoting,
- * limit normalization, and row mapping that both the pgvector and full-text
- * stores would otherwise duplicate. Subclasses own their query construction.
+ * limit normalization, and row mapping that concrete search stores would
+ * otherwise duplicate. Subclasses own their query construction.
  */
 export abstract class ContentSearchStore {
   constructor(protected readonly dataSource: DataSource) {}

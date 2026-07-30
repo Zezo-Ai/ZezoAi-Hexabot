@@ -149,15 +149,17 @@ describe('RagService (orchestrator)', () => {
     it('reindexes the newly selected helper when it supports it', async () => {
       const reindex = jest.fn().mockResolvedValue(undefined);
       helperService.get.mockReturnValue({
-        getName: () => 'pgvector',
+        getName: () => 'custom-search',
         reindex,
       });
 
-      await ragService.handleDefaultRagHelperChanged({ value: 'pgvector' });
+      await ragService.handleDefaultRagHelperChanged({
+        value: 'custom-search',
+      });
 
       expect(helperService.get).toHaveBeenCalledWith(
         HelperType.RAG,
-        'pgvector',
+        'custom-search',
       );
       expect(reindex).toHaveBeenCalledTimes(1);
     });

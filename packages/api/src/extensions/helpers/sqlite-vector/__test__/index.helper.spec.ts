@@ -85,7 +85,7 @@ describe('SqliteVectorRagHelper', () => {
     (embed as jest.Mock).mockResolvedValue({ embedding: [1, 0] });
   });
 
-  it('is registered on SQLite only, leaving PostgreSQL to the pgvector helper', () => {
+  it('is registered on SQLite only', () => {
     expect(createHelper('better-sqlite3').helper.isAvailable()).toBe(true);
     expect(createHelper('sqlite').helper.isAvailable()).toBe(false);
     expect(createHelper('postgres').helper.isAvailable()).toBe(false);

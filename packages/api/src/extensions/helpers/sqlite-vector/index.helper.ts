@@ -32,9 +32,8 @@ type SqliteVectorSettings = z.infer<typeof sqliteVectorSettingsSchema>;
 
 /**
  * Semantic RAG helper for SQLite deployments, storing its embeddings in the
- * application database through the sqlite-vec extension. It is the SQLite
- * counterpart of the pgvector helper: the two cover different databases, so
- * exactly one of them is ever available on a given deployment.
+ * application database through the sqlite-vec extension. Database-specific
+ * availability ensures it is registered only for SQLite deployments.
  *
  * Content lifecycle hooks update the SQLite index directly. A profile hash over
  * the provider, model, dimensions and chunking settings keys every stored
