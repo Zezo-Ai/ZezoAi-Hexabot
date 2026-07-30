@@ -1,13 +1,10 @@
 # RAG helpers
 
-Hexabot ships with two built-in, database-owned RAG helpers:
+Hexabot ships with one built-in, database-owned RAG helper:
 
 - `fulltext-search` is the default. PostgreSQL uses a GIN expression index over
   the canonical `contents.searchText`; SQLite uses an FTS5 table maintained by
   database triggers.
-- `sqlite-vector` is SQLite-only. It chunks `searchText`, calls an embedding
-  endpoint, stores vectors through sqlite-vec, and indexes directly from CMS
-  lifecycle hooks.
 
 Additional RAG helpers can be installed as `hexabot-helper-*` packages. They
 are auto-discovered from `node_modules/hexabot-helper-*/**/*.helper.js` and own
@@ -56,14 +53,6 @@ On **PostgreSQL**, any dormant LlamaIndex structures are preserved for rollback
 and are _not_ automated away. After the new helper has been verified and the
 rollback window has closed, operators may remove them manually.
 
-## Indexing only active content
-
-The built-in embedding helper exposes `index_only_active_content` (default
-`true`). When enabled, inactive content is not embedded and is removed from the
-vector index. Toggling the setting reindexes the corpus. When disabled, all
-content is embedded, while retrieval still excludes inactive content unless
-explicitly requested.
-
 ## Testing
 
 Unit tests run against the default SQLite config:
@@ -71,9 +60,6 @@ Unit tests run against the default SQLite config:
 ```sh
 pnpm --filter @hexabot-ai/api test
 ```
-
-The sqlite-vector integration suite runs in normal CI when the sqlite-vec
-binary is available.
 
 The core migration has a PostgreSQL integration suite
 (`src/migration/migrations/1784815200000-v-3-4-0.integration.spec.ts`) covering
