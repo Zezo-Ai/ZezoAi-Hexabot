@@ -14,7 +14,7 @@ This guide is for the current v3 development line.
 
 Do not open public GitHub issues for security vulnerabilities.
 
-Report vulnerabilities privately to `community@hexabot.ai` (see `SECURITY.md`) with:
+Report vulnerabilities privately to `hello@hexabot.ai` (see `SECURITY.md`) with:
 
 - affected component/version,
 - reproduction steps,
