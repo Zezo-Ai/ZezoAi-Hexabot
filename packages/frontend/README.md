@@ -51,7 +51,7 @@ Hexabot also provides a live chat widget package that can be launched in paralle
 pnpm --filter @hexabot-ai/widget run dev
 ```
 
-To run all workspace dev tasks (including `@hexabot-ai/frontend` and `@hexabot-ai/graph`), use `pnpm dev` from the repository root.
+To run all workspace dev tasks (including `@hexabot-ai/frontend` and `@hexabot-ai/graph`), use `pnpm dev:all` from the repository root.
 
 The chat widget development server listens on http://localhost:5173.
 
@@ -60,7 +60,7 @@ The chat widget development server listens on http://localhost:5173.
 Create a `.env.local` (or `.env`) file inside `packages/frontend/` to override defaults that are read at build-time:
 
 ```
-VITE_API_ORIGIN=http://localhost:4000
+VITE_API_ORIGIN=http://localhost:3000/api
 VITE_SSO_ENABLED=false
 VITE_UPLOAD_MAX_SIZE_IN_BYTES=20971520
 VITE_DEFAULT_LANGUAGE=en
