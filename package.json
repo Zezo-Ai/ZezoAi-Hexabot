@@ -15,7 +15,7 @@
     "typecheck": "turbo run typecheck",
     "format": "turbo run format",
     "clean": "turbo run clean",
-    "prepare": "husky",
+    "prepare": "husky || exit 0",
     "release:prepatch": "./bump-version.sh publish alpha prepatch",
     "release:preminor": "./bump-version.sh publish alpha preminor",
     "release:prerelease": "./bump-version.sh publish alpha prerelease",

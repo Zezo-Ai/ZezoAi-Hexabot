@@ -2,6 +2,7 @@ version: "3.8"
 
 services:
   api:
+    image: hexastack/hexabot-api:dev
     build:
       context: ../
       dockerfile: ./packages/api/Dockerfile
@@ -36,10 +37,12 @@ services:
 
   hexabot-frontend:
     container_name: frontend
+    image: hexastack/hexabot-ui:dev
     build:
       context: ../
       dockerfile: ./packages/frontend/Dockerfile
       target: development
     pull_policy: build
     volumes:
-      - ../packages/frontend/:/app/packages/frontend/
+      - ../packages/frontend/src:/app/packages/frontend/src
+      - ../packages/frontend/public:/app/packages/frontend/public

@@ -1,1 +1,14 @@
 version: "3.8"
+
+services:
+  api:
+    build:
+      context: ../
+      dockerfile: ./packages/api/Dockerfile
+      target: production
+
+  hexabot-frontend:
+    build:
+      context: ../
+      dockerfile: ./packages/frontend/Dockerfile
+      target: production
