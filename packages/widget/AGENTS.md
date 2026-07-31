@@ -149,11 +149,9 @@ Update widget config defaults:
 
 Update widget theming:
 1. Update contracts in `src/theme/theme.types.ts` and resolver behavior in `src/theme/theme.utils.ts`.
-2. Keep priority and compatibility behavior aligned:
+2. Keep theme priority aligned:
    - config override > server settings > system prefers-color-scheme > safe defaults
-   - support both `theme` and legacy `theme_color` / `themeColor`
-3. Keep `useTheme()` for TS logic and CSS custom properties on `.sc-theme-root` for styles.
-4. Preserve `useColors()` compatibility exports for existing components/integrations.
+3. Keep `useTheme()` for TS logic and CSS custom properties on `.hb-theme-root` for styles.
 
 Update dependencies:
 ```bash
@@ -172,7 +170,7 @@ pnpm --filter @hexabot-ai/widget run build
 
 Release (v3 alpha train, `main` branch):
 ```bash
-./bump-version.sh preminor
+./bump-version.sh publish alpha preminor
 ```
 > TODO: Confirm with maintainers whether a given release should use `prepatch`, `preminor`, or `prerelease`.
 
@@ -184,9 +182,6 @@ Release (v3 alpha train, `main` branch):
 - Keep the public widget entry contract stable unless explicitly requested:
   - `src/ChatWidget.tsx` default export.
   - Vite library build target in `vite.config.ts` (`name: "HexabotWidget"`).
-- Keep theme backward compatibility unless explicitly requested otherwise:
-  - `theme_color` / `themeColor` support must remain functional.
-  - `src/providers/ColorProvider.tsx` currently re-exports theme-backed compatibility hooks.
 - Settings persistence is now instance-scoped (`hexabot:widget:settings:<scope>`); avoid changes that re-introduce cross-widget leakage.
 - Any protocol-level changes (socket payloads, webhook behavior) must stay compatible with the backend expectations used in `src/providers/ChatProvider.tsx` and `src/utils/SocketIoClient.ts`.
 - Preserve license headers and do not remove licensing notices.
