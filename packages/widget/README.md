@@ -124,8 +124,6 @@ To prevent the website css from conflicting with the chat widget css, we can lev
 </script>
 ```
 
-To follow the current v3 beta channel, use:
-`https://cdn.jsdelivr.net/npm/@hexabot-ai/widget@beta/dist/`
 
 For stable v3 releases, pin the major version:
 `https://cdn.jsdelivr.net/npm/@hexabot-ai/widget@3/dist/`
