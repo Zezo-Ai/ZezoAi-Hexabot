@@ -10,7 +10,7 @@ Not yet familiar with [Hexabot](https://hexabot.ai/)? Hexabot v3 is an agentic A
 
 - Node.js >= 24.17.0
 - One package manager (`npm`, `pnpm`, `yarn`, or `bun`)
-- Docker Desktop/Engine (only required when you pass `--docker` or use `hexabot docker ...`)
+- Docker Desktop/Engine (only required when you pass `--docker`)
 
 ### Installation
 
@@ -22,7 +22,7 @@ npm install -g @hexabot-ai/cli
 
 ### Usage
 
-Once installed, you can use the `hexabot` command anywhere. The CLI focuses on a “zero to running workflow automation” path: create a project, `cd` into it, and run `hexabot dev`. Docker is optional and available via `--docker` or the `hexabot docker ...` helpers.
+Once installed, you can use the `hexabot` command anywhere. The CLI focuses on a “zero to running workflow automation” path: create a project, `cd` into it, and run `hexabot dev`. Docker is optional and available through the `--docker` option on `dev` and `start`.
 
 ### Commands
 
@@ -76,18 +76,6 @@ Helper commands to manage `.env` files.
 
 Flags: `--force` overwrites existing files when running `env init`.
 
-#### `docker`
-
-Quality-of-life wrappers around `docker compose` using the project’s `docker/` folder.
-
-- `hexabot docker up [--services <list>] [--build] [-d]`
-- `hexabot docker down [--services <list>] [--volumes]`
-- `hexabot docker logs [service] [-f | --since <1h>]`
-- `hexabot docker ps`
-- `hexabot docker start [--services <list>] [--build] [-d]` – convenience alias for `hexabot start --docker`
-
-The CLI automatically stitches together `docker-compose.yml` + `docker-compose.<service>.yml` overlays, can copy `.env.docker.example` on first run, and passes `.env.docker` to Docker Compose with `--env-file` when it exists.
-
 #### `start`
 
 Production-oriented variant of `dev`.
@@ -99,6 +87,7 @@ hexabot start --docker --services api,postgres --build
 
 - Local mode runs the configured `start` script (defaults to `npm run start`).
 - Docker mode uses the “prod” compose overlays (e.g. `docker-compose.<service>.prod.yml`) so no dev-specific files are chained.
+- Docker mode automatically stitches together the base Compose file and service overlays, and passes `.env.docker` through `--env-file` when it exists.
 - Pass `--env-bootstrap` if you still want the CLI to copy env examples automatically.
 
 #### `check`

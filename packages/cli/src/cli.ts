@@ -10,7 +10,6 @@ import { registerCheckCommand } from './commands/check.js';
 import { registerConfigCommand } from './commands/config.js';
 import { registerCreateCommand } from './commands/create.js';
 import { registerDevCommand } from './commands/dev.js';
-import { registerDockerCommand } from './commands/docker.js';
 import { registerEnvCommand } from './commands/env.js';
 import { registerMigrateCommand } from './commands/migrate.js';
 import { registerStartCommand } from './commands/start.js';
@@ -28,7 +27,6 @@ export const createCliProgram = () => {
   registerCreateCommand(program);
   registerConfigCommand(program);
   registerDevCommand(program);
-  registerDockerCommand(program);
   registerEnvCommand(program);
   registerStartCommand(program);
   registerMigrateCommand(program);
