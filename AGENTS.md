@@ -28,7 +28,8 @@ This file defines repository-wide instructions for AI coding agents working in t
 
 ## Standard workspace commands
 - Install dependencies: `pnpm install`
-- Run all dev tasks: `pnpm dev`
+- Run the default dev tasks: `pnpm dev`
+- Run all workspace dev tasks: `pnpm dev:all`
 - Build all packages: `pnpm build`
 - Lint all packages: `pnpm lint`
 - Run tests: `pnpm test`
