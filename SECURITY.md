@@ -6,10 +6,10 @@ At Hexabot, we take security very seriously and are committed to ensuring the sa
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 3.x.x   | :white_check_mark: |
 | 2.x.x   | :white_check_mark: |
 
 ## Reporting a Vulnerability
-
 
 To report a vulnerability, please send an email to community@hexabot.ai with the following details:
 

@@ -278,7 +278,7 @@ Current Vitest suites cover:
 
 ## License
 
-Copyright (c) 2026 Hexastack.
+Copyright (c) 2025 Hexastack.
 
 This project is licensed under the **Fair Core License, Version 1.0**, with **Apache License 2.0** as the future license (abbrev. **FCL-1.0-ALv2**).
 

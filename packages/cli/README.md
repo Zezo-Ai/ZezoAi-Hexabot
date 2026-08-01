@@ -148,7 +148,7 @@ That’s it—`create → cd → dev` is the happy path for a new Hexabot v3 aut
 
 ## Documentation
 
-For detailed information on how to get started, as well as in-depth user and developer guides, please refer to our full documentation available in the docs folder or visit the [Documentation](https://docs.hexabot.ai).
+For detailed information on how to get started, see the repository README files below or visit the [Documentation](https://docs.hexabot.ai).
 
 You can also find specific documentation for different components of the project in the following locations:
 

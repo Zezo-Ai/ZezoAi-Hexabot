@@ -15,14 +15,13 @@ The [Hexabot](https://hexabot.ai/) Live Chat Widget is a React-based embeddable 
 
 The Hexabot Live Chat Widget is organized into the following directory structure, under `src` we have:
 
-- **src/assets:** Static assets like icons, fonts, and images used in the widget.
 - **src/components:** Reusable React components that make up the chat widget interface, such as message bubbles, input fields, and buttons.
 - **src/constants:** Hard coded values that are used like colors.
 - **src/hooks:** Custom React hooks for managing widget state and handling side effects like API calls or real-time events.
-- **src/services:** Handles external services, such as communication with the Hexabot API or other third-party integrations.
-- **src/styles:** Contains the styling for the widget, including CSS or SCSS files used to define the look and feel of the chat interface.
 - **src/providers:** Context providers for managing global state, such as user session, chat messages, and widget configurations.
-- **src/translations:** Contains transalation of a couple of strings.
+- **src/test:** Test setup for Vitest and jsdom.
+- **src/theme:** Theme contracts, utilities, and CSS variable defaults.
+- **src/translations:** Contains translations for widget strings.
 - **src/types:** Defines the typescript interfaces, types, and enums used.
 - **src/utils:** Utility functions and helpers used throughout the widget, such as formatting, validations, or data transformations.
 
@@ -62,10 +61,10 @@ The preview server is helpful for validating the compiled assets before publishi
 
 Once the widget is built, you can easily embed it into any webpage. Here's an example of how to add it to your website:
 
-```js
+```html
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="<<WIDGET URL>>/style.css">
 <script src="<<WIDGET URL>>/hexabot-widget.umd.js"></script>
 
 <div id="hb-chat-widget"></div>
@@ -76,8 +75,8 @@ Once the widget is built, you can easily embed it into any webpage. Here's an ex
     el(HexabotWidget, {
       apiUrl: 'https://api.yourdomain.com',
       channel: 'web',
+      sourceId: 'your-source-id',
       transport: 'ws', // or "polling"
-      token: 'token123',
       primaryColor: '#1ba089',
     }),
     domContainer,
@@ -85,12 +84,12 @@ Once the widget is built, you can easily embed it into any webpage. Here's an ex
 </script>
 ```
 
-Replace the values in `apiUrl`, `token`, and `primaryColor` with your configuration details.
+Replace the values in `apiUrl`, `sourceId`, and `primaryColor` with your configuration details.
 `transport` is optional and accepts `ws` (default) or `polling`.
 
 To prevent the website css from conflicting with the chat widget css, we can leverage the shadow dom:
 
-```js
+```html
 <script crossorigin src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="<<WIDGET URL>>/hexabot-widget.umd.js"></script>
@@ -108,7 +107,7 @@ To prevent the website css from conflicting with the chat widget css, we can lev
         createElement("link", {
           rel: "stylesheet",
           href: "<<WIDGET URL>>/style.css"
-        });
+        }),
       );
 
   // Render the widget inside the shadow root
@@ -116,8 +115,8 @@ To prevent the website css from conflicting with the chat widget css, we can lev
     React.createElement(HexabotWidget, {
       apiUrl: 'https://api.yourdomain.com',
       channel: 'web',
+      sourceId: 'your-source-id',
       transport: 'ws', // or "polling"
-      token: 'token123',
       primaryColor: '#1ba089',
     }),
     shadowContainer,
@@ -125,11 +124,9 @@ To prevent the website css from conflicting with the chat widget css, we can lev
 </script>
 ```
 
-If you would like to use the official widget and benefit from updates automatically, you can consider using the CDN url:
-`https://cdn.jsdelivr.net/npm/@hexabot-ai/widget@2.0.4/dist/`
 
-or latest from the major version:
-`https://cdn.jsdelivr.net/npm/@hexabot-ai/widget@2/dist/`
+For stable v3 releases, pin the major version:
+`https://cdn.jsdelivr.net/npm/@hexabot-ai/widget@3/dist/`
 
 JsDelivr uses the package published in the npm registry: https://www.npmjs.com/package/@hexabot-ai/widget
 
