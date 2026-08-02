@@ -87,6 +87,7 @@ hexabot start --docker --services api,postgres --build
 
 - Local mode runs the configured `start` script (defaults to `npm run start`).
 - Docker mode uses the “prod” compose overlays (e.g. `docker-compose.<service>.prod.yml`) so no dev-specific files are chained.
+- Docker mode never pulls the Hexabot application images. It uses locally available production images; pass `--build` to build or rebuild them locally.
 - Docker mode automatically stitches together the base Compose file and service overlays, and passes `.env.docker` through `--env-file` when it exists.
 - Pass `--env-bootstrap` if you still want the CLI to copy env examples automatically.
 

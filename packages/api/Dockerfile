@@ -64,6 +64,7 @@ COPY packages/types/package.json packages/types/package.json
 COPY packages/frontend/package.json packages/frontend/package.json
 COPY packages/widget/package.json packages/widget/package.json
 COPY packages/agentic/package.json packages/agentic/package.json
+COPY packages/graph/package.json packages/graph/package.json
 
 RUN pnpm install --filter @hexabot-ai/api... --prod --network-concurrency 4
 
