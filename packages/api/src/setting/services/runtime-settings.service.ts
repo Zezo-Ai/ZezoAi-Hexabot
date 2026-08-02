@@ -48,7 +48,13 @@ export class RuntimeSettingsService {
     RuntimeSettingGroupDefinition
   >();
 
+  private schemaTransformer = (_: string, schema: z.ZodTypeAny) => schema;
+
   constructor(private readonly i18nService: I18nService) {}
+
+  setSchemaTransformer(transformer: typeof this.schemaTransformer): void {
+    this.schemaTransformer = transformer;
+  }
 
   register({
     group,
@@ -118,7 +124,7 @@ export class RuntimeSettingsService {
       throw new Error(`Unable to find setting schema "${group}.${label}"`);
     }
 
-    return settingSchema;
+    return this.schemaTransformer(label, settingSchema);
   }
 
   getAllSchemaDefinitions(): RuntimeSettingSchemaDefinitions {

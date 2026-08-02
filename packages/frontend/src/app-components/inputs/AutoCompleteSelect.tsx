@@ -16,8 +16,8 @@ import Autocomplete, {
   AutocompleteValue,
 } from "@mui/material/Autocomplete";
 import stringify from "fast-json-stable-stringify";
-import { forwardRef, useCallback, useMemo } from "react";
 import type { ReactNode } from "react";
+import { forwardRef, useCallback, useMemo } from "react";
 
 import { AlertAdornment } from "./AlertAdornment";
 
@@ -131,6 +131,7 @@ const AutoCompleteSelect = <
       isOptionEqualToValue={isOptionEqualToValue}
       freeSolo={freeSolo}
       loading={loading}
+      disableClearable={(rest.disableClearable ?? required) as DisableClearable}
       renderTags={(tags, getTagProps) => (
         <Box
           sx={{
