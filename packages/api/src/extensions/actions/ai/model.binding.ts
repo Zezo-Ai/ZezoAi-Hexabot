@@ -60,6 +60,21 @@ export const aiModelBindingSchema = z.strictObject({
         hideUntilAdded: true,
       },
     }),
+  supports_structured_outputs: z
+    .boolean()
+    .optional()
+    .meta({
+      title: 'Supports Structured Outputs',
+      description:
+        'Enable for endpoints that support response_format: json_schema. This sends the full JSON schema for structured generation. Leave unset to preserve the provider default.',
+      'ui:options': {
+        showWhen: {
+          field: 'provider',
+          in: ['litellm', 'openai-compatible'],
+        },
+        hideUntilAdded: true,
+      },
+    }),
 });
 
 declare global {
