@@ -7,6 +7,7 @@
   "license": "FCL-1.0-ALv2",
   "packageManager": "pnpm@11.8.0",
   "scripts": {
+    "start": "pnpm --filter @hexabot-ai/api run start",
     "dev": "turbo run dev --filter=!@hexabot-ai/cli --filter=!@hexabot-ai/widget --filter=!@hexabot-ai/graph",
     "dev:all": "turbo run dev",
     "build": "turbo run build",
