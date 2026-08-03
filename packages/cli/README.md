@@ -22,7 +22,7 @@ npm install -g @hexabot-ai/cli
 
 ### Usage
 
-Once installed, you can use the `hexabot` command anywhere. The CLI focuses on a “zero to running workflow automation” path: create a project, `cd` into it, and run `hexabot dev`. Docker is optional and available through the `--docker` option on `dev` and `start`.
+Once installed, you can use the `hexabot` command anywhere. The CLI focuses on a “zero to running workflow automation” path: create a project, `cd` into it, and run `hexabot dev`. Docker is optional and available through the `--docker` option on `dev`, `start`, and `stop`.
 
 ### Commands
 
@@ -91,6 +91,22 @@ hexabot start --docker --services api,postgres --build
 - Docker mode automatically stitches together the base Compose file and service overlays, and passes `.env.docker` through `--env-file` when it exists.
 - Pass `--env-bootstrap` if you still want the CLI to copy env examples automatically.
 
+#### `stop`
+
+Stop the Docker stack previously started with `dev --docker` or `start --docker`.
+
+```sh
+hexabot start --docker -d
+hexabot stop --docker
+```
+
+- `--docker` – required; the CLI only manages the Docker stack. Local `dev`/`start` run in the foreground, so stop them with Ctrl+C.
+- `--services <list>` – comma-separated Compose overlays/profiles to chain (defaults to `docker.defaultServices`).
+- `-v, --volumes` – also remove the named volumes declared by the stack (destroys database data).
+- `--remove-orphans` – remove containers that are no longer defined by the chained Compose files.
+
+The command runs `docker compose ... down` with the base Compose file plus service overlays (no dev/prod overlay), and passes `.env.docker` through `--env-file` when it exists so `COMPOSE_PROJECT_NAME` resolves to the same project that was started.
+
 #### `check`
 
 Run diagnostics for the current environment.
@@ -132,6 +148,12 @@ Run database migrations inside the Docker `api` container. Any extra args are fo
 
    ```sh
    hexabot dev --docker --services postgres
+   ```
+
+4. **Tear the Docker stack down when you are done**:
+
+   ```sh
+   hexabot stop --docker
    ```
 
 That’s it—`create → cd → dev` is the happy path for a new Hexabot v3 automation project, while Docker and env helpers remain available on demand.

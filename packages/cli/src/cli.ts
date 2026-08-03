@@ -13,6 +13,7 @@ import { registerDevCommand } from './commands/dev.js';
 import { registerEnvCommand } from './commands/env.js';
 import { registerMigrateCommand } from './commands/migrate.js';
 import { registerStartCommand } from './commands/start.js';
+import { registerStopCommand } from './commands/stop.js';
 import { getCliVersion } from './utils/version.js';
 
 export const createCliProgram = () => {
@@ -29,6 +30,7 @@ export const createCliProgram = () => {
   registerDevCommand(program);
   registerEnvCommand(program);
   registerStartCommand(program);
+  registerStopCommand(program);
   registerMigrateCommand(program);
 
   return program;
