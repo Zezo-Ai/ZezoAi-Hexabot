@@ -34,15 +34,18 @@ RUN pnpm --filter @hexabot-ai/frontend... run build
 FROM base AS development
 
 ENV NODE_ENV=development
+# node_modules is baked into the image; don't let pnpm re-install on every script run
+ENV pnpm_config_verify_deps_before_run=false
 
 COPY package.json pnpm-workspace.yaml turbo.json pnpm-lock.yaml ./
+COPY --from=deps /root/.cache/node/corepack /root/.cache/node/corepack
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages ./packages
 COPY packages/frontend ./packages/frontend
 COPY packages/widget ./packages/widget
 COPY packages/agentic ./packages/agentic
 COPY packages/graph ./packages/graph
 COPY packages/types ./packages/types
-COPY packages/api/package.json packages/api/package.json
 
 WORKDIR /app/packages/frontend
 EXPOSE 8080

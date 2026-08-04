@@ -10,7 +10,7 @@ Not yet familiar with [Hexabot](https://hexabot.ai/)? Hexabot v3 is an agentic A
 
 - Node.js >= 24.17.0
 - One package manager (`npm`, `pnpm`, `yarn`, or `bun`)
-- Docker Desktop/Engine (only required when you pass `--docker` or use `hexabot docker ...`)
+- Docker Desktop/Engine (only required when you pass `--docker`)
 
 ### Installation
 
@@ -22,7 +22,7 @@ npm install -g @hexabot-ai/cli
 
 ### Usage
 
-Once installed, you can use the `hexabot` command anywhere. The CLI focuses on a “zero to running workflow automation” path: create a project, `cd` into it, and run `hexabot dev`. Docker is optional and available via `--docker` or the `hexabot docker ...` helpers.
+Once installed, you can use the `hexabot` command anywhere. The CLI focuses on a “zero to running workflow automation” path: create a project, `cd` into it, and run `hexabot dev`. Docker is optional and available through the `--docker` option on `dev`, `start`, and `stop`.
 
 ### Commands
 
@@ -76,18 +76,6 @@ Helper commands to manage `.env` files.
 
 Flags: `--force` overwrites existing files when running `env init`.
 
-#### `docker`
-
-Quality-of-life wrappers around `docker compose` using the project’s `docker/` folder.
-
-- `hexabot docker up [--services <list>] [--build] [-d]`
-- `hexabot docker down [--services <list>] [--volumes]`
-- `hexabot docker logs [service] [-f | --since <1h>]`
-- `hexabot docker ps`
-- `hexabot docker start [--services <list>] [--build] [-d]` – convenience alias for `hexabot start --docker`
-
-The CLI automatically stitches together `docker-compose.yml` + `docker-compose.<service>.yml` overlays, can copy `.env.docker.example` on first run, and passes `.env.docker` to Docker Compose with `--env-file` when it exists.
-
 #### `start`
 
 Production-oriented variant of `dev`.
@@ -99,7 +87,25 @@ hexabot start --docker --services api,postgres --build
 
 - Local mode runs the configured `start` script (defaults to `npm run start`).
 - Docker mode uses the “prod” compose overlays (e.g. `docker-compose.<service>.prod.yml`) so no dev-specific files are chained.
+- Docker mode never pulls the Hexabot application images. It uses locally available production images; pass `--build` to build or rebuild them locally.
+- Docker mode automatically stitches together the base Compose file and service overlays, and passes `.env.docker` through `--env-file` when it exists.
 - Pass `--env-bootstrap` if you still want the CLI to copy env examples automatically.
+
+#### `stop`
+
+Stop the Docker stack previously started with `dev --docker` or `start --docker`.
+
+```sh
+hexabot start --docker -d
+hexabot stop --docker
+```
+
+- `--docker` – required; the CLI only manages the Docker stack. Local `dev`/`start` run in the foreground, so stop them with Ctrl+C.
+- `--services <list>` – comma-separated Compose overlays/profiles to chain (defaults to `docker.defaultServices`).
+- `-v, --volumes` – also remove the named volumes declared by the stack (destroys database data).
+- `--remove-orphans` – remove containers that are no longer defined by the chained Compose files.
+
+The command runs `docker compose ... down` with the base Compose file plus service overlays (no dev/prod overlay), and passes `.env.docker` through `--env-file` when it exists so `COMPOSE_PROJECT_NAME` resolves to the same project that was started.
 
 #### `check`
 
@@ -142,6 +148,12 @@ Run database migrations inside the Docker `api` container. Any extra args are fo
 
    ```sh
    hexabot dev --docker --services postgres
+   ```
+
+4. **Tear the Docker stack down when you are done**:
+
+   ```sh
+   hexabot stop --docker
    ```
 
 That’s it—`create → cd → dev` is the happy path for a new Hexabot v3 automation project, while Docker and env helpers remain available on demand.
