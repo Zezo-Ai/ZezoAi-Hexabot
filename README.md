@@ -87,9 +87,9 @@ Default local endpoints:
 Useful CLI commands:
 
 - `hexabot create <project-name>`
-- `hexabot dev [--docker --services <list>]`
-- `hexabot start [--docker --services <list>]`
-- `hexabot docker <up|down|logs|ps|start>`
+- `hexabot dev [--docker] [--services <list>] [-d]`
+- `hexabot start [--docker] [--services <list>] [--build] [-d]`
+- `hexabot stop --docker [--services <list>] [-v] [--remove-orphans]`
 - `hexabot env <init|list>`
 - `hexabot check`
 - `hexabot config <show|set>`

@@ -5,6 +5,7 @@
  */
 
 import { LoggerService } from '@/logger/logger.service';
+import { RuntimeSettingsService } from '@/setting/services/runtime-settings.service';
 import { SettingService } from '@/setting/services/setting.service';
 
 import { HelperService } from './helper.service';
@@ -29,6 +30,9 @@ describe('HelperService', () => {
     service = new HelperService(
       settingService,
       logger as unknown as LoggerService,
+      {
+        setSchemaTransformer: jest.fn(),
+      } as unknown as RuntimeSettingsService,
     );
   });
 

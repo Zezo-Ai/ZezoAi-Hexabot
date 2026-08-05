@@ -5,8 +5,10 @@
  */
 
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { z } from 'zod';
 
 import { LoggerService } from '@/logger/logger.service';
+import { RuntimeSettingsService } from '@/setting/services/runtime-settings.service';
 import { SettingService } from '@/setting/services/setting.service';
 
 import BaseHelper from './lib/base-helper';
@@ -19,11 +21,15 @@ export class HelperService {
   constructor(
     private readonly settingService: SettingService,
     private readonly logger: LoggerService,
+    runtimeSettingsService: RuntimeSettingsService,
   ) {
     // Init empty registry
     Object.values(HelperType).forEach((type: HelperType) => {
       this.registry.set(type, new Map());
     });
+    runtimeSettingsService.setSchemaTransformer(
+      this.transformSettingSchema.bind(this),
+    );
   }
 
   /**
@@ -40,6 +46,18 @@ export class HelperService {
     }
     helpers.set(helper.getName(), helper);
     this.logger.log(`Helper "${helper.getName()}" has been registered!`);
+  }
+
+  private transformSettingSchema(fieldName: string, schema: z.ZodTypeAny) {
+    const helperType = Object.values(HelperType).find(
+      (type) => fieldName === `default_${type}_helper`,
+    );
+
+    return helperType
+      ? schema.pipe(
+          z.enum(this.getAllByType(helperType).map(({ name }) => name)),
+        )
+      : schema;
   }
 
   /**
