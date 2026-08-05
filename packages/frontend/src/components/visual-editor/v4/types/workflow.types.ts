@@ -22,7 +22,6 @@ import type { ResizeControlDirection } from "@xyflow/system";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 
 import { EntityType } from "@/services/types";
-import type { IAction } from "@/types/action.types";
 import type { EntityAttributes } from "@/types/base.types";
 
 import type { UpdateWorkflowDefinitionStateOptions } from "../utils/workflow-definition-state.utils";
@@ -105,7 +104,11 @@ export interface IWorkflowContext {
   isImportingWorkflow: boolean;
   exportWorkflow: (workflowId: string) => void;
   importWorkflowBundle: (file: File) => void;
-  addActionStep: (action: IAction, insertPath?: FlowStepPath | null) => void;
+  addActionStep: (
+    taskName: string,
+    taskDefinition: TaskDefinition,
+    insertPath?: FlowStepPath | null,
+  ) => void;
   addConditionalStep: (insertPath?: FlowStepPath | null) => void;
   addLoopStep: (insertPath?: FlowStepPath | null) => void;
   addParallelStep: (insertPath?: FlowStepPath | null) => void;

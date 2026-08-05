@@ -8,7 +8,6 @@ import {
   BaseSettingsSchema,
   DEFAULT_RETRY_SETTINGS,
   DEFAULT_TIMEOUT_MS,
-  FlowStep,
   JsonValue,
   Settings,
   TaskDefinition,
@@ -135,6 +134,7 @@ export const useActionFormDrawerController = ({
   const {
     workflow,
     definition,
+    addActionStep,
     updateDefinitionState,
     isSaving,
     taskDefinitions,
@@ -392,31 +392,8 @@ export const useActionFormDrawerController = ({
           ? { settings: nextSettingsData as TaskDefinition["settings"] }
           : {}),
       };
-      const nextStep: FlowStep = { do: nextTaskName };
-      const definitionWithTask: WorkflowDefinition = {
-        ...currentDefinition,
-        defs: {
-          ...(currentDefinition.defs ?? {}),
-          [nextTaskName]: nextTask,
-        },
-        outputs: {
-          ...currentDefinition.outputs,
-          result: `=$output.${nextTaskName}`,
-        },
-      };
-      const insertedDefinition = target.insertPath
-        ? WorkflowHelper.insertStepAtPath(
-            definitionWithTask,
-            target.insertPath,
-            nextStep,
-          )
-        : null;
-      const nextDefinition: WorkflowDefinition = insertedDefinition ?? {
-        ...definitionWithTask,
-        flow: [...(currentDefinition.flow ?? []), nextStep],
-      };
 
-      updateDefinitionState(nextDefinition);
+      addActionStep(nextTaskName, nextTask, target.insertPath);
       handleSaveClose();
 
       return;
