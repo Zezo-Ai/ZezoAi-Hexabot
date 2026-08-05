@@ -399,11 +399,10 @@ export const useActionFormDrawerController = ({
           ...(currentDefinition.defs ?? {}),
           [nextTaskName]: nextTask,
         },
-        outputs:
-          currentDefinition.outputs &&
-          Object.keys(currentDefinition.outputs).length > 0
-            ? currentDefinition.outputs
-            : { result: `=$output.${nextTaskName}` },
+        outputs: {
+          ...currentDefinition.outputs,
+          result: `=$output.${nextTaskName}`,
+        },
       };
       const insertedDefinition = target.insertPath
         ? WorkflowHelper.insertStepAtPath(

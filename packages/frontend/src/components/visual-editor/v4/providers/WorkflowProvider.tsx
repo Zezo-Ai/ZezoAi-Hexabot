@@ -139,10 +139,10 @@ export const WorkflowProvider: React.FC<WorkflowContextProps> = ({
         ...baseDefinition.defs,
         [nextTaskName]: nextTaskDefinition,
       };
-      const nextOutputs =
-        baseDefinition.outputs && Object.keys(baseDefinition.outputs).length > 0
-          ? baseDefinition.outputs
-          : { result: `=$output.${nextTaskName}` };
+      const nextOutputs = {
+        ...baseDefinition.outputs,
+        result: `=$output.${nextTaskName}`,
+      };
       const nextStep: FlowStep = { do: nextTaskName };
       const definitionWithTask: WorkflowDefinition = {
         ...baseDefinition,
@@ -297,7 +297,17 @@ export const WorkflowProvider: React.FC<WorkflowContextProps> = ({
         return;
       }
 
-      updateDefinitionState(nextDefinition);
+      const lastTaskName = Object.keys(
+        extractTaskDefinitions(nextDefinition.defs),
+      ).at(-1);
+      const { result: _result, ...outputs } = nextDefinition.outputs;
+
+      updateDefinitionState({
+        ...nextDefinition,
+        outputs: lastTaskName
+          ? { ...outputs, result: `=$output.${lastTaskName}` }
+          : outputs,
+      });
 
       if (!nodeId || !selectedNodeIds.includes(nodeId)) {
         return;
