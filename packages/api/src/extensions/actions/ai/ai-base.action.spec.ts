@@ -198,14 +198,15 @@ describe('AiBaseAction', () => {
   describe('buildProviderInitOptions', () => {
     it('returns init options when provided', () => {
       const options = action.buildProviderInitOptionsPublic(
-        'custom',
+        'litellm',
         {
           settings: {
             api_key: 'key',
             base_url: 'https://example.com',
             organization: 'org',
-            provider: 'openai',
-            model_id: 'gpt-4o-mini',
+            provider: 'litellm',
+            model_id: 'gemini-2.5-flash',
+            supports_structured_outputs: true,
           },
         } as RuntimeBindings['model'],
         'key',
@@ -215,7 +216,41 @@ describe('AiBaseAction', () => {
         apiKey: 'key',
         baseURL: 'https://example.com',
         organization: 'org',
+        supportsStructuredOutputs: true,
       });
+    });
+
+    it('leaves supportsStructuredOutputs undefined when not configured', () => {
+      const options = action.buildProviderInitOptionsPublic(
+        'litellm',
+        {
+          settings: {
+            api_key: 'key',
+            provider: 'litellm',
+            model_id: 'gemini-2.5-flash',
+          },
+        } as RuntimeBindings['model'],
+        'key',
+      );
+
+      expect(options.supportsStructuredOutputs).toBeUndefined();
+    });
+
+    it('preserves explicitly disabled structured outputs', () => {
+      const options = action.buildProviderInitOptionsPublic(
+        'litellm',
+        {
+          settings: {
+            api_key: 'key',
+            provider: 'litellm',
+            model_id: 'gemini-2.5-flash',
+            supports_structured_outputs: false,
+          },
+        } as RuntimeBindings['model'],
+        'key',
+      );
+
+      expect(options).toHaveProperty('supportsStructuredOutputs', false);
     });
 
     it('throws when api key is required but missing', () => {
@@ -275,6 +310,7 @@ describe('AiBaseAction', () => {
       const options: ProviderInitOptions = {
         apiKey: 'sk-litellm-key',
         baseURL: 'http://localhost:4000/v1',
+        supportsStructuredOutputs: false,
       };
 
       (createOpenAICompatible as jest.Mock).mockReturnValue(provider);

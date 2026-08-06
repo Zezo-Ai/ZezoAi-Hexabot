@@ -40,6 +40,7 @@ export type ProviderInitOptions = {
   apiKey?: string;
   baseURL?: string;
   organization?: string;
+  supportsStructuredOutputs?: boolean;
 };
 
 export type LanguageModelProvider =
@@ -93,6 +94,8 @@ export abstract class AiBaseAction<
     const apiKey = modelSettings?.api_key;
     const baseURL = modelSettings?.base_url;
     const organization = modelSettings?.organization;
+    const supportsStructuredOutputs =
+      modelSettings?.supports_structured_outputs;
 
     if (!apiKey && this.shouldRequireApiKey(providerId)) {
       throw new Error(
@@ -104,6 +107,7 @@ export abstract class AiBaseAction<
       apiKey: credentials,
       baseURL,
       organization,
+      supportsStructuredOutputs,
     };
   }
 
@@ -338,6 +342,7 @@ export abstract class AiBaseAction<
       'api_key',
       'base_url',
       'organization',
+      'supports_structured_outputs',
     ] as const;
 
     if (!this.isPlainObject(value) || !this.isPlainObject(value.settings)) {
