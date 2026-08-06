@@ -6,8 +6,10 @@
 
 import { Source, StdEventType, Subscriber } from '@hexabot-ai/types';
 import { Inject, Injectable } from '@nestjs/common';
+import type { RequestHandler } from '@nestjs/common/interfaces';
 import { Request, Response } from 'express';
 
+import { AppInstance } from '@/app.instance';
 import { SocketRequest } from '@/websocket/utils/socket-request';
 import { SocketResponse } from '@/websocket/utils/socket-response';
 
@@ -19,6 +21,12 @@ import { ChannelName } from '../../types';
 import ChannelHandler from '../Handler';
 import type ChannelInboundEvent from '../inbound-events/channel-inbound-event';
 import type MessageInboundEvent from '../inbound-events/message-inbound-event';
+
+type Route<Method = unknown> = {
+  suffix: string;
+  handler: RequestHandler;
+  method?: Method;
+};
 
 /**
  * Abstract base for channels that receive events over plain HTTP webhooks
@@ -47,6 +55,10 @@ export abstract class HttpChannelHandler<N extends ChannelName>
   extends ChannelHandler<N>
   implements SubscriberResolution<N>
 {
+  private readonly customRoutersAllowedMethods = ['get', 'post'] as const;
+
+  private readonly registeredPaths = new Set<string>();
+
   @Inject(SubscriberResolver)
   private readonly subscriberResolver: SubscriberResolver;
 
@@ -183,5 +195,65 @@ export abstract class HttpChannelHandler<N extends ChannelName>
    */
   normalizeSenderId(rawSenderId: string): string {
     return rawSenderId;
+  }
+
+  /**
+   * Adds one Express route per entry `getRoutes()` returns.
+   *
+   * Handlers are attached directly to the underlying HTTP server and therefore
+   * do NOT go through the NestJS request pipeline (no guards, interceptors, pipes, etc.).
+   *
+   * Routes are deduplicated internally: calling this method again with the same
+   * channel and identical path+method will log a warning and skip registration.
+   *
+   * @param channelName - logical channel identifier, must not contain '/'
+   * @param getRoutes   - async factory returning route definitions
+   * @param basePath    - optional base path, default: '/api/webhook/:sourceRef'
+   */
+  async registerCustomRoutes(
+    channelName: N,
+    getCustomRoutes: () => Promise<
+      Route<(typeof this.customRoutersAllowedMethods)[number]>[]
+    >,
+    basePath = '/api/webhook/:sourceRef',
+  ): Promise<void> {
+    if (channelName.includes('/')) {
+      throw new Error(`channelName must not contain '/': ${channelName}`);
+    }
+
+    let routes: Route<(typeof this.customRoutersAllowedMethods)[number]>[];
+
+    try {
+      routes = await getCustomRoutes();
+    } catch (error) {
+      this.logger.error(
+        `Failed to retrieve routes for channel "${channelName}": ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+
+    const httpAdapter = AppInstance.getApp().getHttpAdapter();
+
+    for (const { suffix, handler, method = 'post' } of routes) {
+      const path = `${basePath}/${channelName}/${suffix}`;
+      const routeKey = `${method} ${path}`;
+      const upperMethod = method.toLowerCase();
+
+      if (!this.customRoutersAllowedMethods.includes(method)) {
+        this.logger.log(`Skipped {${path}, ${upperMethod}} route`);
+
+        continue;
+      }
+
+      if (this.registeredPaths.has(routeKey)) {
+        this.logger.warn(`Duplicated {${path}, ${upperMethod}} route`);
+        continue;
+      }
+
+      // Register directly on the Express adapter
+      httpAdapter[method](path, handler);
+      this.logger.log(`Mapped {${path}, ${upperMethod}} route`);
+    }
   }
 }
