@@ -13,6 +13,7 @@ type TestEntity = {
   name: string;
   email: string;
   createdAt: Date;
+  owner: { id: string; country: string };
 };
 
 describe('TypeOrmSearchFilterPipe', () => {
@@ -93,6 +94,31 @@ describe('TypeOrmSearchFilterPipe', () => {
     );
 
     expect(defaultSort.order).toEqual({ createdAt: 'DESC' });
+  });
+
+  // Each OR branch must inherit the AND filter (owner.id) while overriding it
+  // where they overlap (owner.country), without leaking into its siblings.
+  it('should keep every OR branch independent when nested with an AND filter', async () => {
+    const nestedPipe = new TypeOrmSearchFilterPipe<TestEntity>({
+      allowedFields: ['owner.id', 'owner.country'],
+    });
+    const result = await nestedPipe.transform(
+      {
+        where: {
+          'owner.id': 'OWNER-1',
+          or: [
+            { 'owner.country': 'United Kingdom' },
+            { 'owner.country': 'United States' },
+          ],
+        },
+      } as any,
+      {} as any,
+    );
+
+    expect(result.where).toEqual([
+      { owner: { id: 'OWNER-1', country: 'United Kingdom' } },
+      { owner: { id: 'OWNER-1', country: 'United States' } },
+    ]);
   });
 
   describe('prototype pollution prevention', () => {
