@@ -32,12 +32,6 @@ export type QuerySortDirection = 'ASC' | 'DESC' | 'asc' | 'desc';
 
 export type QuerySortDto<T> = [keyof T & string, QuerySortDirection];
 
-export type PageQueryDto<T> = {
-  skip: number | undefined;
-  limit: number | undefined;
-  sort?: QuerySortDto<T>;
-};
-
 export type PageQueryParams = {
   skip?: string;
   limit?: string;
@@ -143,7 +137,7 @@ export class TypeOrmSearchFilterPipe<T>
       return undefined;
     }
 
-    const baseWhere: FindOptionsWhere<T> = {} as FindOptionsWhere<T>;
+    let baseWhere: FindOptionsWhere<T> = {} as FindOptionsWhere<T>;
     const orClauses: FindOptionsWhere<T>[] = [];
 
     for (const filter of filters) {
@@ -153,7 +147,7 @@ export class TypeOrmSearchFilterPipe<T>
       if (filter.context === 'or') {
         orClauses.push(clause);
       } else {
-        this.mergeWhereObjects(baseWhere, clause);
+        baseWhere = this.mergeWhereObjects(baseWhere, clause);
       }
     }
 
@@ -167,12 +161,7 @@ export class TypeOrmSearchFilterPipe<T>
       return orClauses;
     }
 
-    return orClauses.map((clause) =>
-      this.mergeWhereObjects(
-        { ...(baseWhere as Record<string, unknown>) } as FindOptionsWhere<T>,
-        clause,
-      ),
-    );
+    return orClauses.map((clause) => this.mergeWhereObjects(baseWhere, clause));
   }
 
   private parseNumber(
@@ -412,28 +401,31 @@ export class TypeOrmSearchFilterPipe<T>
     cursor[segments[segments.length - 1]] = value;
   }
 
+  // Must stay pure: the same base clause is merged into every `or` branch.
   private mergeWhereObjects(
     left: FindOptionsWhere<T>,
     right: FindOptionsWhere<T>,
   ): FindOptionsWhere<T> {
+    const merged = {
+      ...left,
+    };
+
     for (const [key, value] of Object.entries(right)) {
       if (value === undefined || hasForbiddenSegment(key)) {
         continue;
       }
 
-      const existing = (left as Record<string, unknown>)[key];
-      if (this.isPlainObject(existing) && this.isPlainObject(value)) {
-        this.mergeWhereObjects(
-          existing as FindOptionsWhere<T>,
-          value as FindOptionsWhere<T>,
-        );
-        continue;
-      }
-
-      (left as Record<string, unknown>)[key] = value;
+      const existing = merged[key];
+      merged[key] =
+        this.isPlainObject(existing) && this.isPlainObject(value)
+          ? this.mergeWhereObjects(
+              existing as FindOptionsWhere<T>,
+              value as FindOptionsWhere<T>,
+            )
+          : value;
     }
 
-    return left;
+    return merged as FindOptionsWhere<T>;
   }
 
   private hasWhereEntries(where: FindOptionsWhere<T>): boolean {
