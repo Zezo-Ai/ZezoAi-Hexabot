@@ -7,22 +7,33 @@
   "type": "module",
   "main": "dist/hexabot-widget.umd.js",
   "module": "dist/hexabot-widget.es.js",
-  "types": "dist/embed.d.ts",
+  "types": "dist/index.d.ts",
   "style": "dist/style.css",
+  "jsdelivr": "dist/hexabot-widget.umd.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/hexabot-widget.es.js",
+      "require": "./dist/hexabot-widget.cjs",
+      "default": "./dist/hexabot-widget.es.js"
+    },
+    "./style.css": "./dist/style.css",
+    "./dist/*": "./dist/*",
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
-    "src",
     "README.md"
   ],
   "scripts": {
     "dev": "vite",
-    "build": "pnpm run clean && tsc && vite build",
+    "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext ts,tsx --fix",
     "preview": "vite preview --port 5174",
     "serve": "pnpm exec http-server ./dist/ -b -g -p 5174",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -b",
     "format": "pnpm run lint:fix",
     "clean": "rimraf dist"
   },
@@ -38,6 +49,10 @@
     "marked": "14.0.0",
     "normalize.css": "^8.0.1",
     "socket.io-client": "^4.8.1"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
   },
   "devDependencies": {
     "@types/chroma-js": "^3.1.2",

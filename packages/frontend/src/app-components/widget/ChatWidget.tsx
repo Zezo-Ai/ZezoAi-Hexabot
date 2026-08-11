@@ -4,7 +4,7 @@
  * Full terms: see LICENSE.md.
  */
 
-import UiChatWidget from "@hexabot-ai/widget/src/UiChatWidget";
+import { UiChatWidget } from "@hexabot-ai/widget";
 import { Box, useColorScheme, useTheme } from "@mui/material";
 import { memo, useCallback, useMemo } from "react";
 
