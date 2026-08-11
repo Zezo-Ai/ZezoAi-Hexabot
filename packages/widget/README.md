@@ -2,7 +2,7 @@
 
 The [Hexabot](https://hexabot.ai/) Live Chat Widget is a React-based embeddable widget that allows users to integrate real-time chat functionality into their websites. It connects to the Hexabot API and facilitates seamless interaction between end-users and chatbots across multiple channels.
 
-[Hexabot](https://hexabot.ai/) is a chatbot / agent solution that allows users to create and manage AI-powered, multi-channel, and multilingual chatbots with ease. If you would like to learn more, please visit the [official github repo](https://github.com/hexabot-ai/Hexabot/).
+[Hexabot](https://hexabot.ai/) is a chatbot / agent solution that allows users to create and manage AI-powered, multi-channel, and multilingual chatbots with ease. If you would like to learn more, please visit the [official GitHub repository](https://github.com/hexabot-ai/Hexabot/).
 
 ## Key Features
 
@@ -15,16 +15,16 @@ The [Hexabot](https://hexabot.ai/) Live Chat Widget is a React-based embeddable 
 
 The Hexabot Live Chat Widget is organized into the following directory structure, under `src` we have:
 
+- **src/index.tsx:** Public npm and library entry point.
 - **src/components:** Reusable React components that make up the chat widget interface, such as message bubbles, input fields, and buttons.
-- **src/constants:** Hard coded values that are used like colors.
+- **src/constants:** Hard-coded values such as default colors.
 - **src/hooks:** Custom React hooks for managing widget state and handling side effects like API calls or real-time events.
 - **src/providers:** Context providers for managing global state, such as user session, chat messages, and widget configurations.
 - **src/test:** Test setup for Vitest and jsdom.
 - **src/theme:** Theme contracts, utilities, and CSS variable defaults.
 - **src/translations:** Contains translations for widget strings.
-- **src/types:** Defines the typescript interfaces, types, and enums used.
+- **src/types:** Defines the TypeScript interfaces, types, and enums used.
 - **src/utils:** Utility functions and helpers used throughout the widget, such as formatting, validations, or data transformations.
-
 - **/public:** Contains static files that are publicly accessible. This includes the main HTML template where the widget is embedded for local development.
 
 ## Run the Live Chat Widget
@@ -37,7 +37,7 @@ Start the widget dev server from the repository root:
 pnpm --filter @hexabot-ai/widget run dev
 ```
 
-The live chat widget will be accessible at http://localhost:5173.
+The live chat widget will be accessible at <http://localhost:5173>.
 
 ### Build for Production
 
@@ -63,83 +63,194 @@ The preview server is helpful for validating the compiled assets before publishi
 pnpm --filter @hexabot-ai/widget run serve
 ```
 
-Unlike `preview`, this serves the precompressed `.br`/`.gz` files the build
-produces alongside the bundle — use it to check what a CDN or self-hosted
-deployment will actually send over the wire. Both commands default to port
-`5174`, so run only one at a time.
+Unlike `preview`, this serves `dist` through a plain static file server
+instead of Vite's dev-oriented middleware — use it to check what a CDN or
+self-hosted deployment will actually send over the wire. Both commands
+default to port `5174`, so run only one at a time.
+
+## React Package Usage
+
+Install `@hexabot-ai/widget` alongside React 18 or React 19, then import the
+component and stylesheet from the package root:
+
+```tsx
+import { ChatWidget } from "@hexabot-ai/widget";
+import "@hexabot-ai/widget/style.css";
+
+export function SupportChat() {
+  return (
+    <ChatWidget
+      apiUrl="http://localhost:3000"
+      channel="web"
+      sourceId="replace-with-source-id"
+      primaryColor="#29998e"
+      language="en"
+      transport="ws"
+    />
+  );
+}
+```
+
+The default export is the same component. `UiChatWidget` is also available as a
+named export for applications that need custom launchers, headers, or avatars.
+Component integration renders directly in the application's DOM, so
+`shadowDom` and `css` are exclusive to the imperative API.
 
 ## Embed Chat Widget
 
-Once the widget is built, you can easily embed it into any webpage. Here's an example of how to add it to your website:
+React and ReactDOM are peer dependencies and are not bundled with the widget.
+Choose one of the following embed integrations.
 
-The widget bundles its own copy of React, so `hexabot-widget.umd.js` is the
-only *script* you need — no separate React/ReactDOM tags to load first. Its
-styles still ship as a separate file, so keep the stylesheet link.
+### Script-Tag Integrations
+
+#### Legacy ReactDOM Render
+
+This preserves the original browser integration. It uses React 18 because
+`ReactDOM.render()` is not available in React 19 and React 19 does not publish
+official UMD browser bundles.
 
 ```html
-<link rel="stylesheet" href="<<WIDGET URL>>/style.css">
+<script
+  crossorigin
+  src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"
+></script>
+<script
+  crossorigin
+  src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"
+></script>
+<link rel="stylesheet" href="<<WIDGET URL>>/style.css" />
 <script src="<<WIDGET URL>>/hexabot-widget.umd.js"></script>
 
-<div id="hb-chat-widget"></div>
+<div id="hexabot-chat-widget"></div>
 <script>
-  HexabotWidget.config({
-    id: 'hb-chat-widget',
-    apiUrl: 'https://api.yourdomain.com',
-    channel: 'web',
-    sourceId: 'your-source-id',
-    transport: 'ws', // or "polling"
-    primaryColor: '#1ba089',
-  });
+  ReactDOM.render(
+    React.createElement(HexabotWidget, {
+      apiUrl: "http://localhost:3000",
+      channel: "web",
+      sourceId: "replace-with-source-id",
+      primaryColor: "#29998e",
+      language: "en",
+      transport: "ws",
+    }),
+    document.getElementById("hexabot-chat-widget"),
+  );
 </script>
 ```
 
-`config` takes one object: `id` (an element id, a CSS selector, or an element)
-plus `css` (a stylesheet URL to load) and `shadowDom` (render in a shadow root),
-alongside the regular widget config.
+#### Imperative Embed API
 
-`config` returns a handle with an `unmount()` method if you need to tear the
-widget down again.
+`config()` returns a handle containing exactly `show()`, `hide()`, and
+`destroy()`.
 
-Replace the values in `apiUrl`, `sourceId`, and `primaryColor` with your configuration details.
-`transport` is optional and accepts `ws` (default) or `polling`.
-
-To prevent the website css from conflicting with the chat widget css, we can leverage the shadow dom:
-
-Pass `shadowDom: true` and `config` creates the shadow root, renders inside it, and
-loads `css` into that root — a shadow root does not inherit the page's styles,
-so the stylesheet has to go in with it. No `<link>` in the page is needed.
+The HTML version uses the React 18 UMD globals:
 
 ```html
+<script
+  crossorigin
+  src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"
+></script>
+<script
+  crossorigin
+  src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"
+></script>
+<link rel="stylesheet" href="<<WIDGET URL>>/style.css" />
 <script src="<<WIDGET URL>>/hexabot-widget.umd.js"></script>
 
-<div id="hb-chat-widget"></div>
+<div id="hexabot-chat-widget"></div>
 <script>
-  HexabotWidget.config({
-    id: 'hb-chat-widget',
-    apiUrl: 'https://api.yourdomain.com',
-    channel: 'web',
-    sourceId: 'your-source-id',
-    transport: 'ws', // or "polling"
-    primaryColor: '#1ba089',
-    css: '<<WIDGET URL>>/style.css',
-    shadowDom: true,
+  const embed = HexabotWidget.config({
+    id: "hexabot-chat-widget",
+    apiUrl: "http://localhost:3000",
+    channel: "web",
+    sourceId: "replace-with-source-id",
+    primaryColor: "#29998e",
+    language: "en",
+    transport: "ws",
   });
+
+  embed.show();
+
+  // Call when needed:
+  // embed.hide();
+  // embed.destroy();
 </script>
 ```
+
+### Module Import Integrations
+
+#### Imperative API in a React Component
+
+The component wrapper supports React 18 and React 19 through a bundler. It
+creates the imperative widget after its container mounts and destroys it during
+cleanup:
+
+```tsx
+import HexabotWidget from "@hexabot-ai/widget";
+import "@hexabot-ai/widget/style.css";
+import { useEffect, useRef } from "react";
+
+export function ImperativeChatWidget() {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const embed = HexabotWidget.config({
+      id: containerRef.current,
+      apiUrl: "http://localhost:3000",
+      channel: "web",
+      sourceId: "replace-with-source-id",
+      primaryColor: "#29998e",
+      language: "en",
+      transport: "ws",
+    });
+
+    embed.show();
+
+    return () => embed.destroy();
+  }, []);
+
+  return <div ref={containerRef} />;
+}
+```
+
+`show()` makes the widget visible, preserving its existing state after a
+`hide()`. `destroy()` permanently unmounts the widget and releases its React
+root. A destroyed handle cannot be shown again.
+
+`config()` accepts an element ID, CSS selector, or `Element` as `id`.
+
+To isolate the widget from host-page CSS, pass `shadowDom: true` and provide the
+stylesheet URL through `css`:
+
+```js
+const embed = HexabotWidget.config({
+  id: "hexabot-chat-widget",
+  css: "<<WIDGET URL>>/style.css",
+  shadowDom: true,
+  apiUrl: "http://localhost:3000",
+  channel: "web",
+  sourceId: "replace-with-source-id",
+});
+
+embed.show();
+```
+
+Replace `apiUrl`, `sourceId`, and the other example values with the deployment's
+widget configuration. `transport` is optional and accepts `ws` (default) or
+`polling`.
 
 For stable releases, pin the major version:
 `https://cdn.jsdelivr.net/npm/@hexabot-ai/widget@3/dist/`
 
-> **Note:** the snippets above use `HexabotWidget.config()`, which is only
-> available from the major release that bundles React. Pinning `@3` loads the
-> older bundle, which instead expects `React` and `ReactDOM` globals to already
-> be on the page. Bump this pin when that major is published.
-
-JsDelivr uses the package published in the npm registry: https://www.npmjs.com/package/@hexabot-ai/widget
+jsDelivr uses the package published in the npm registry:
+<https://www.npmjs.com/package/@hexabot-ai/widget>
 
 ## Examples
 
-As a proof of concept we developed a Wordpress plugin to embed the chat widget in a Wordpress website : [https://github.com/hexabot-ai/hexabot-wordpress-live-chat-widget](https://github.com/hexabot-ai/hexabot-wordpress-live-chat-widget)
+As a proof of concept, we developed a WordPress plugin to embed the chat widget
+in a WordPress website:
+[hexabot-wordpress-live-chat-widget](https://github.com/hexabot-ai/hexabot-wordpress-live-chat-widget).
 
 ## Customization
 

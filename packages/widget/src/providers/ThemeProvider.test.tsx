@@ -109,7 +109,7 @@ describe("ThemeProvider", () => {
       );
     });
 
-    const rootNode = container.querySelector(".hb-theme-root");
+    const rootNode = container.querySelector<HTMLElement>(".hb-theme-root");
     const probeNode = container.querySelector("[data-theme-probe='1']");
 
     expect(rootNode?.getAttribute("data-theme-mode")).toBe("dark");
