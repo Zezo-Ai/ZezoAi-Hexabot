@@ -869,27 +869,6 @@ importers:
 
   packages/widget:
     dependencies:
-      chroma-js:
-        specifier: ^3.2.0
-        version: 3.2.0
-      dayjs:
-        specifier: ^1.11.12
-        version: 1.11.18
-      dompurify:
-        specifier: 3.4.12
-        version: 3.4.12
-      emoji-js:
-        specifier: ^3.8.0
-        version: 3.9.0
-      lucide-react:
-        specifier: ^0.562.0
-        version: 0.562.0(react@19.2.7)
-      marked:
-        specifier: 14.0.0
-        version: 14.0.0
-      normalize.css:
-        specifier: ^8.0.1
-        version: 8.0.1
       socket.io-client:
         specifier: ^4.8.1
         version: 4.8.1
@@ -915,6 +894,18 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^6.0.2
         version: 6.0.2(vite@8.0.16(@types/node@24.12.0)(esbuild@0.28.1)(jiti@2.6.1)(sass@1.98.0)(terser@5.44.0)(tsx@4.22.4)(yaml@2.8.3))
+      chroma-js:
+        specifier: ^3.2.0
+        version: 3.2.0
+      dayjs:
+        specifier: ^1.11.12
+        version: 1.11.18
+      dompurify:
+        specifier: 3.4.12
+        version: 3.4.12
+      emoji-js:
+        specifier: ^3.8.0
+        version: 3.9.0
       eslint:
         specifier: ^9.37.0
         version: 9.37.0(jiti@2.6.1)
@@ -942,6 +933,15 @@ importers:
       lint-staged:
         specifier: ^15.3.0
         version: 15.5.2
+      lucide-react:
+        specifier: ^0.562.0
+        version: 0.562.0(react@19.2.7)
+      marked:
+        specifier: 14.0.0
+        version: 14.0.0
+      normalize.css:
+        specifier: ^8.0.1
+        version: 8.0.1
       react:
         specifier: 19.2.7
         version: 19.2.7

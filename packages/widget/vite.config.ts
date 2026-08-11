@@ -33,6 +33,10 @@ const copyBuildMetadata = (outDir: string): Plugin => ({
       resolve(outDir, "LICENSE.md"),
     );
     copyFileSync(resolve(__dirname, "README.md"), resolve(outDir, "README.md"));
+    copyFileSync(
+      resolve(__dirname, "package.json"),
+      resolve(outDir, "package.json"),
+    );
   },
 });
 /** Makes the browser global both callable and usable as an export namespace. */
