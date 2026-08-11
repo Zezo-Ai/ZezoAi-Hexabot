@@ -22,8 +22,7 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist",
-    "README.md"
+    "dist"
   ],
   "scripts": {
     "dev": "vite",
