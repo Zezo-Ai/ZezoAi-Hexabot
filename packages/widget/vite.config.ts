@@ -23,22 +23,6 @@ const emitCommonJsAlias = (outDir: string): Plugin => ({
     );
   },
 });
-/** Copies release metadata that must travel with every built widget artifact. */
-const copyBuildMetadata = (outDir: string): Plugin => ({
-  name: "hexabot-build-metadata",
-  apply: "build",
-  closeBundle() {
-    copyFileSync(
-      resolve(__dirname, "../../LICENSE.md"),
-      resolve(outDir, "LICENSE.md"),
-    );
-    copyFileSync(resolve(__dirname, "README.md"), resolve(outDir, "README.md"));
-    copyFileSync(
-      resolve(__dirname, "package.json"),
-      resolve(outDir, "package.json"),
-    );
-  },
-});
 /** Makes the browser global both callable and usable as an export namespace. */
 const exposeLegacyUmdDefault = (): Plugin => ({
   name: "hexabot-legacy-umd-default",
@@ -77,7 +61,6 @@ export default defineConfig(({ mode }) => {
         bundleTypes: true,
       }),
       exposeLegacyUmdDefault(),
-      copyBuildMetadata(resolve(__dirname, "dist")),
       emitCommonJsAlias(resolve(__dirname, "dist")),
     ],
     oxc: {
