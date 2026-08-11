@@ -33,6 +33,7 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
       "@hexabot-ai/agentic": path.resolve(__dirname, "../agentic/src"),
       "@hexabot-ai/types": path.resolve(__dirname, "../types/src"),
+      "@hexabot-ai/widget": path.resolve(__dirname, "../widget/src/index.tsx"),
       // Sub-path alias must come before the bare package alias.
       "@hexabot-ai/graph/workflow.css": path.resolve(
         graphSrc,
