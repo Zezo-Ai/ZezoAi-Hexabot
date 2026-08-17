@@ -7,8 +7,8 @@
 import { WorkflowImportResult } from '@hexabot-ai/types';
 import {
   BadRequestException,
+  Body,
   Controller,
-  Get,
   Post,
   Req,
   Res,
@@ -41,6 +41,7 @@ export class WorkflowTransferController {
   @UseInterceptors(FileInterceptor('file'))
   async importWorkflow(
     @UploadedFile() file: Express.Multer.File,
+    @Body('password') credentialPassword: unknown,
     @Req() req: Request,
   ): Promise<WorkflowImportResult> {
     const userId = req.session?.passport?.user?.id;
@@ -57,6 +58,7 @@ export class WorkflowTransferController {
     return await this.workflowTransferService.importWorkflow(
       file.buffer.toString('utf-8'),
       userId,
+      this.parseCredentialPassword(credentialPassword),
     );
   }
 
@@ -68,12 +70,16 @@ export class WorkflowTransferController {
    *
    * @returns YAML bundle content.
    */
-  @Get(':id/export')
+  @Post(':id/export')
   async exportWorkflow(
     @UuidParam('id') id: string,
+    @Body('password') credentialPassword: unknown,
     @Res({ passthrough: true }) res: Response,
   ): Promise<string> {
-    const exported = await this.workflowTransferService.exportWorkflow(id);
+    const exported = await this.workflowTransferService.exportWorkflow(
+      id,
+      this.parseCredentialPassword(credentialPassword),
+    );
 
     res.setHeader('Content-Type', 'application/x-yaml; charset=utf-8');
     res.setHeader(
@@ -82,5 +88,13 @@ export class WorkflowTransferController {
     );
 
     return exported.content;
+  }
+
+  private parseCredentialPassword(value: unknown): string | undefined {
+    if (value !== undefined && typeof value !== 'string') {
+      throw new BadRequestException('Credential password must be a string');
+    }
+
+    return value;
   }
 }

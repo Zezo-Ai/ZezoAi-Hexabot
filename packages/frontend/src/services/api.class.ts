@@ -362,11 +362,19 @@ export class ApiClient extends TranslatableMethods {
     return data;
   }
 
-  async exportWorkflow(id: string): Promise<WorkflowExportFile> {
+  async exportWorkflow(
+    id: string,
+    credentialPassword?: string | null,
+  ): Promise<WorkflowExportFile> {
     const route = resolveRoute(ROUTES.WORKFLOW_EXPORT, { id });
-    const response = await this.request.get<Blob>(route, {
-      responseType: "blob",
-    });
+    const response = await this.request.post<Blob>(
+      route,
+      {
+        ...(await this.getCsrf()),
+        ...(credentialPassword ? { password: credentialPassword } : {}),
+      },
+      { responseType: "blob" },
+    );
     const contentDisposition = response.headers["content-disposition"];
     const filename = this.getFilenameFromContentDisposition(
       typeof contentDisposition === "string" ? contentDisposition : null,
@@ -378,11 +386,17 @@ export class ApiClient extends TranslatableMethods {
     };
   }
 
-  async importWorkflowBundle(file: File): Promise<WorkflowImportResult> {
+  async importWorkflowBundle(
+    file: File,
+    credentialPassword?: string,
+  ): Promise<WorkflowImportResult> {
     const { _csrf } = await this.getCsrf();
     const formData = new FormData();
 
     formData.append("file", file);
+    if (credentialPassword) {
+      formData.append("password", credentialPassword);
+    }
 
     const { data } = await this.request.post<
       WorkflowImportResult,

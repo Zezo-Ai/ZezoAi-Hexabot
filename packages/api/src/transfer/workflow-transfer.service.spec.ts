@@ -9,6 +9,8 @@ import {
   type WorkflowDefinition,
 } from '@hexabot-ai/agentic';
 import {
+  WebhookAuthType,
+  WebhookJwtAlgorithm,
   WORKFLOW_EXPORT_BUNDLE_KIND,
   workflowExportBundleSchema,
 } from '@hexabot-ai/types';
@@ -38,6 +40,7 @@ import { buildTestingMocks } from '@/utils/test/utils';
 import { WEBSOCKET_GATEWAY } from '@/websocket/tokens';
 import type { WebsocketGateway } from '@/websocket/websocket.gateway';
 import { workflowResourceRef } from '@/workflow/resource-refs';
+import { conversationalWorkflowInputJsonSchema } from '@/workflow/schemas/workflow-input-schemas';
 import { McpClientPoolService } from '@/workflow/services/mcp-client-pool.service';
 import { McpServerService } from '@/workflow/services/mcp-server.service';
 import { MemoryDefinitionService } from '@/workflow/services/memory-definition.service';
@@ -481,6 +484,8 @@ describe('WorkflowTransferService', () => {
     );
 
     expect(bundle.kind).toBe(WORKFLOW_EXPORT_BUNDLE_KIND);
+    expect(bundle).not.toHaveProperty('integrity');
+    expect(bundle.workflow).not.toHaveProperty('inputSchema');
     expect(bundle.resources.memoryDefinitions).toHaveLength(1);
     expect(bundle.resources.mcpServers).toHaveLength(1);
     expect(bundle.resources.contentTypes).toEqual([
@@ -514,6 +519,128 @@ describe('WorkflowTransferService', () => {
     ]);
     expect(exported.content).not.toContain('secret-value');
     expect(exported.filename).toMatch(/\.workflow\.yml$/);
+    await expect(
+      transferService.exportWorkflow(workflow.id, 'weak-password'),
+    ).rejects.toThrow('Credential export password must be at least 12');
+
+    const credentialPassword = 'StrongCredential#123';
+    const exportedWithCredentials = await transferService.exportWorkflow(
+      workflow.id,
+      credentialPassword,
+    );
+    const bundleWithCredentials = workflowExportBundleSchema.parse(
+      parseYaml(exportedWithCredentials.content),
+    );
+
+    expect(bundleWithCredentials.credentialProtection).toMatchObject({
+      keyDerivation: 'scrypt',
+      cipher: 'aes-256-gcm',
+    });
+    expect(bundleWithCredentials.integrity).toMatch(/^[a-f0-9]{64}$/);
+    expect(bundleWithCredentials.resources.credentials[0]).not.toHaveProperty(
+      'value',
+    );
+    expect(
+      bundleWithCredentials.credentialProtection?.ciphertext,
+    ).toBeDefined();
+    expect(exportedWithCredentials.content).not.toContain('secret-value');
+    expect(exportedWithCredentials.filename).toMatch(
+      /^protected-.*\.workflow\.yml$/,
+    );
+    await expect(
+      transferService.importWorkflow(
+        exportedWithCredentials.content,
+        creatorId,
+        'WrongCredential#123',
+      ),
+    ).rejects.toThrow('Unable to decrypt credentials');
+    const importedProtected = await transferService.importWorkflow(
+      exportedWithCredentials.content,
+      creatorId,
+      credentialPassword,
+    );
+    expect(importedProtected.workflow.inputSchema).toEqual(
+      conversationalWorkflowInputJsonSchema,
+    );
+    expect(importedProtected.integrityVerified).toBe(true);
+    const tamperedBundle = {
+      ...bundleWithCredentials,
+      workflow: { ...bundleWithCredentials.workflow, name: 'Modified' },
+    };
+    await expect(
+      transferService.importWorkflow(
+        stringifyYaml(tamperedBundle),
+        creatorId,
+        credentialPassword,
+      ),
+    ).rejects.toThrow('Workflow export integrity check failed');
+  });
+
+  it('preserves manual input schemas and webhook credentials', async () => {
+    const inputSchema = {
+      type: 'object' as const,
+      properties: { topic: { type: 'string' as const } },
+      required: ['topic'],
+    };
+    const webhookCredential = await credentialService.create({
+      name: `Webhook secret ${Date.now()}`,
+      value: 'webhook-secret-value',
+      owner: creatorId,
+    });
+    const workflow = await workflowService.create({
+      name: `Manual export ${Date.now()}`,
+      type: WorkflowType.manual,
+      schedule: null,
+      inputSchema,
+      webhookTrigger: {
+        enabled: true,
+        authType: WebhookAuthType.jwt,
+        jwtAlgorithm: WebhookJwtAlgorithm.HS256,
+        jwtSecretCredentialId: webhookCredential.id,
+      },
+      createdBy: creatorId,
+    });
+    await workflowVersionService.commit({
+      workflow: workflow.id,
+      definitionYml: AgenticWorkflow.stringifyDefinition({
+        defs: {},
+        flow: [],
+        outputs: {},
+      }),
+      action: WorkflowVersionAction.update,
+      createdBy: creatorId,
+    });
+
+    const credentialPassword = 'StrongCredential#123';
+    const exported = await transferService.exportWorkflow(
+      workflow.id,
+      credentialPassword,
+    );
+    const bundle = workflowExportBundleSchema.parse(
+      parseYaml(exported.content),
+    );
+    const imported = await transferService.importWorkflow(
+      exported.content,
+      creatorId,
+      credentialPassword,
+    );
+    const importedCredential = imported.resources.find(
+      (resource) => resource.kind === 'credential',
+    );
+
+    expect(bundle.workflow.inputSchema).toEqual(inputSchema);
+    expect(bundle.workflow.webhookTrigger).toMatchObject({
+      authType: WebhookAuthType.jwt,
+      jwtSecretCredentialId: webhookCredential.id,
+    });
+    expect(bundle.resources.credentials).toEqual([
+      expect.objectContaining({ exportId: webhookCredential.id }),
+    ]);
+    expect(imported.workflow.inputSchema).toEqual(inputSchema);
+    expect(imported.workflow.webhookTrigger).toMatchObject({
+      authType: WebhookAuthType.jwt,
+      jwtSecretCredentialId: importedCredential?.localId,
+    });
   });
 
   it('exports recursively referenced call_workflow dependencies and their resources', async () => {
@@ -646,6 +773,7 @@ describe('WorkflowTransferService', () => {
       result.workflow.id,
     );
 
+    expect(result.integrityVerified).toBe(false);
     expect(result.workflow.publishedVersion).toBeNull();
     expect(credentialResult?.action).toBe('placeholder_created');
     expect(memoryResult?.action).toBe('created');

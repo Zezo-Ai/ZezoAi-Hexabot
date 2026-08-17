@@ -102,8 +102,8 @@ export interface IWorkflowContext {
   isSaving: boolean;
   isExportingWorkflow: boolean;
   isImportingWorkflow: boolean;
-  exportWorkflow: (workflowId: string) => void;
-  importWorkflowBundle: (file: File) => void;
+  exportWorkflow: (workflowId: string) => Promise<void>;
+  importWorkflowBundle: (file: File) => Promise<void>;
   addActionStep: (
     taskName: string,
     taskDefinition: TaskDefinition,

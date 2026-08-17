@@ -4,7 +4,10 @@
  * Full terms: see LICENSE.md.
  */
 
-import { WorkflowImportResourceResult } from '@hexabot-ai/types';
+import {
+  type WorkflowExportBundleCredential,
+  WorkflowImportResourceResult,
+} from '@hexabot-ai/types';
 import { BadRequestException } from '@nestjs/common';
 
 import { BaseOrmEntity } from '@/database/entities/base.entity';
@@ -19,6 +22,11 @@ import { BaseOrmEntity } from '@/database/entities/base.entity';
 
 export const PLACEHOLDER_CREDENTIAL_VALUE =
   '__HEXABOT_IMPORTED_CREDENTIAL_PLACEHOLDER__';
+
+export type WorkflowTransferCredentialResource =
+  WorkflowExportBundleCredential & {
+    value?: string;
+  };
 
 export type WorkflowTransferPostCreateEvent<
   Entity extends BaseOrmEntity<any> = BaseOrmEntity<any>,

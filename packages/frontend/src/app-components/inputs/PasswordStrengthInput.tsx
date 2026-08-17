@@ -14,7 +14,9 @@ import { PasswordInput } from "./PasswordInput";
 type PasswordStrengthInputProps = Omit<
   TextFieldProps,
   "FormHelperTextProps" | "InputLabelProps" | "InputProps" | "inputProps"
->;
+> & {
+  minimumLength?: number;
+};
 
 type PasswordStrengthLabelKey =
   | "message.password_strength_weak"
@@ -28,8 +30,11 @@ type PasswordStrength = {
   score: number;
 };
 
-const getPasswordStrength = (value: string): PasswordStrength => {
-  const hasMinimumLength = value.length >= 8;
+const getPasswordStrength = (
+  value: string,
+  minimumLength: number,
+): PasswordStrength => {
+  const hasMinimumLength = value.length >= minimumLength;
   const hasLowerCase = /[a-z]/.test(value);
   const hasUpperCase = /[A-Z]/.test(value);
   const hasDigit = /\d/.test(value);
@@ -90,13 +95,13 @@ const getPasswordStrength = (value: string): PasswordStrength => {
 export const PasswordStrengthInput = forwardRef<
   any,
   PasswordStrengthInputProps
->(({ onChange, value, ...rest }, ref) => {
+>(({ minimumLength = 8, onChange, value, ...rest }, ref) => {
   const { t } = useTranslate();
   const [passwordValue, setPasswordValue] = useState("");
   const resolvedValue = typeof value === "string" ? value : passwordValue;
   const strength = useMemo(
-    () => getPasswordStrength(resolvedValue),
-    [resolvedValue],
+    () => getPasswordStrength(resolvedValue, minimumLength),
+    [minimumLength, resolvedValue],
   );
   const handleChange: TextFieldProps["onChange"] = (event) => {
     setPasswordValue(event.target.value);

@@ -30,7 +30,8 @@ describe("ApiClient workflow import/export", () => {
     const request = createRequestMock();
     const blob = new Blob(["kind: hexabot.workflow.bundle"]);
 
-    request.get.mockResolvedValue({
+    request.get.mockResolvedValueOnce({ data: { _csrf: "csrf-token" } });
+    request.post.mockResolvedValueOnce({
       data: blob,
       headers: {
         "content-disposition": 'attachment; filename="Sales.workflow.yml"',
@@ -39,13 +40,34 @@ describe("ApiClient workflow import/export", () => {
 
     const result = await new ApiClient(request).exportWorkflow("flow id");
 
-    expect(request.get).toHaveBeenCalledWith("/workflow/flow%20id/export", {
-      responseType: "blob",
-    });
+    expect(request.post).toHaveBeenCalledWith(
+      "/workflow/flow%20id/export",
+      { _csrf: "csrf-token" },
+      { responseType: "blob" },
+    );
     expect(result).toEqual({
       blob,
       filename: "Sales.workflow.yml",
     });
+  });
+
+  it("posts strong passwords for encrypted credential exports", async () => {
+    const request = createRequestMock();
+    const blob = new Blob(["encrypted"]);
+
+    request.get.mockResolvedValueOnce({ data: { _csrf: "csrf-token" } });
+    request.post.mockResolvedValueOnce({ data: blob, headers: {} });
+
+    await new ApiClient(request).exportWorkflow(
+      "flow id",
+      "StrongCredential#123",
+    );
+
+    expect(request.post).toHaveBeenCalledWith(
+      "/workflow/flow%20id/export",
+      { _csrf: "csrf-token", password: "StrongCredential#123" },
+      { responseType: "blob" },
+    );
   });
 
   it("uploads workflow import bundles with CSRF params", async () => {
@@ -72,6 +94,7 @@ describe("ApiClient workflow import/export", () => {
       },
       resources: [],
       warnings: [],
+      integrityVerified: true,
     } satisfies WorkflowImportResult;
 
     request.get.mockResolvedValueOnce({ data: { _csrf: "csrf-token" } });
@@ -80,7 +103,10 @@ describe("ApiClient workflow import/export", () => {
     const file = new File(["kind: hexabot.workflow.bundle"], "bundle.yml", {
       type: "application/x-yaml",
     });
-    const result = await new ApiClient(request).importWorkflowBundle(file);
+    const result = await new ApiClient(request).importWorkflowBundle(
+      file,
+      "StrongCredential#123",
+    );
     const [route, formData, config] = request.post.mock.calls[0];
 
     expect(request.get).toHaveBeenCalledWith("/csrftoken", {
@@ -88,6 +114,7 @@ describe("ApiClient workflow import/export", () => {
     });
     expect(route).toBe("/workflow/import");
     expect(formData).toBeInstanceOf(FormData);
+    expect((formData as FormData).get("password")).toBe("StrongCredential#123");
     expect(config).toEqual({ params: { _csrf: "csrf-token" } });
     expect(result).toBe(importResult);
   });

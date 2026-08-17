@@ -9,14 +9,16 @@ import {
   type WorkflowDefinition,
 } from '@hexabot-ai/agentic';
 import {
+  isStrongWorkflowCredentialPassword,
   WORKFLOW_EXPORT_BUNDLE_KIND,
+  workflowExportBundleSchema,
+  workflowImportResultSchema,
   type WorkflowExportBundle,
   type WorkflowExportBundleWorkflowDependency,
   type WorkflowFull,
   type WorkflowImportResult,
   type WorkflowVersion,
-  workflowExportBundleSchema,
-  workflowImportResultSchema,
+  type WebhookTriggerConfig,
 } from '@hexabot-ai/types';
 import {
   BadRequestException,
@@ -30,15 +32,21 @@ import { DataSource, EntityManager } from 'typeorm';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import { EHook } from '@/utils/generics/base-orm.repository';
+import { computeIntegrity, verifyIntegrity } from '@/utils/hmac-integrity';
 import { WorkflowOrmEntity } from '@/workflow/entities/workflow.entity';
 import { WorkflowVersionService } from '@/workflow/services/workflow-version.service';
 import { WorkflowService } from '@/workflow/services/workflow.service';
-import { WorkflowVersionAction } from '@/workflow/types';
+import { WorkflowType, WorkflowVersionAction } from '@/workflow/types';
 
 import { WorkflowTransferAdapterRegistry } from './workflow-transfer-adapter.registry';
 import {
-  type WorkflowBindingResourceRefs,
+  decryptWorkflowCredentialValues,
+  deriveWorkflowCredentialKeys,
+  encryptWorkflowCredentialValues,
+} from './workflow-transfer-credential-crypto';
+import {
   WorkflowTransferDefinitionService,
+  type WorkflowBindingResourceRefs,
   type WorkflowTaskResourceRefs,
 } from './workflow-transfer-definition.service';
 import {
@@ -47,9 +55,10 @@ import {
   type WorkflowTransferResourceAdapter,
 } from './workflow-transfer-resource-adapter';
 import {
-  buildResourceResult,
   buildPostCreateEvent,
+  buildResourceResult,
   type ImportedWorkflowTransferResources,
+  type WorkflowTransferCredentialResource,
   type WorkflowTransferPostCreateEvent,
 } from './workflow-transfer.types';
 
@@ -92,7 +101,19 @@ export class WorkflowTransferService {
     private readonly workflowTransferAdapterRegistry: WorkflowTransferAdapterRegistry,
   ) {}
 
-  async exportWorkflow(id: string): Promise<ExportedWorkflowFile> {
+  async exportWorkflow(
+    id: string,
+    credentialPassword?: string,
+  ): Promise<ExportedWorkflowFile> {
+    if (
+      credentialPassword !== undefined &&
+      !isStrongWorkflowCredentialPassword(credentialPassword)
+    ) {
+      throw new BadRequestException(
+        'Credential export password must be at least 12 characters and include uppercase, lowercase, number, and special characters',
+      );
+    }
+
     const workflow = await this.workflowService.findOneAndPopulate(id);
     if (!workflow) {
       throw new NotFoundException(`Workflow with ID ${id} not found`);
@@ -117,30 +138,38 @@ export class WorkflowTransferService {
       definition,
       ...dependencyExport.definitions,
     ]);
+    bindingRefs.credential = [
+      ...(bindingRefs.credential ?? []),
+      ...this.collectWebhookCredentialRefs([
+        workflow,
+        ...dependencyExport.resources.map((resource) => resource.workflow),
+      ]),
+    ];
     const resources = await this.buildExportResources(
       this.withoutResourceKind(bindingRefs, WORKFLOW_RESOURCE_KIND),
       this.withoutResourceKind(taskRefs, WORKFLOW_RESOURCE_KIND),
+      credentialPassword !== undefined,
     );
     (resources as Record<string, unknown[]>)[WORKFLOW_RESOURCE_KEY] =
       dependencyExport.resources;
-    const bundle: WorkflowExportBundle = {
+    const credentialResources =
+      resources.credentials as WorkflowTransferCredentialResource[];
+    const [credentialProtection, integrityKey] = credentialPassword
+      ? await encryptWorkflowCredentialValues(
+          credentialResources,
+          credentialPassword,
+        )
+      : [];
+    if (credentialProtection) {
+      resources.credentials = credentialResources.map(
+        ({ value: _value, ...credential }) => credential,
+      );
+    }
+    const bundleContent: Omit<WorkflowExportBundle, 'integrity'> = {
       kind: WORKFLOW_EXPORT_BUNDLE_KIND,
       schemaVersion: 1,
       exportedAt: new Date().toISOString(),
-      workflow: {
-        exportId: workflow.id,
-        name: workflow.name,
-        description: workflow.description ?? null,
-        type: workflow.type,
-        schedule: workflow.schedule ?? null,
-        inputSchema: workflow.inputSchema,
-        layout: {
-          x: workflow.x,
-          y: workflow.y,
-          zoom: workflow.zoom,
-          direction: workflow.direction,
-        },
-      },
+      workflow: this.buildWorkflowExportMetadata(workflow),
       version: {
         number: version.version,
         checksum: version.checksum,
@@ -148,12 +177,22 @@ export class WorkflowTransferService {
         exportedVersionId: version.id,
       },
       definitionYml: version.definitionYml,
+      credentialProtection,
       resources,
     };
+    const bundle = workflowExportBundleSchema.parse({
+      ...bundleContent,
+      integrity: integrityKey
+        ? computeIntegrity(bundleContent, integrityKey)
+        : undefined,
+    });
 
     return {
-      filename: this.buildExportFilename(workflow.name),
-      content: stringifyYaml(workflowExportBundleSchema.parse(bundle), {
+      filename: this.buildExportFilename(
+        workflow.name,
+        Boolean(credentialProtection),
+      ),
+      content: stringifyYaml(bundle, {
         lineWidth: 0,
       }),
     };
@@ -162,8 +201,13 @@ export class WorkflowTransferService {
   async importWorkflow(
     content: string,
     createdBy: string,
+    credentialPassword?: string,
   ): Promise<WorkflowImportResult> {
-    const bundle = this.parseBundle(content);
+    const parsedBundle = this.parseBundle(content);
+    const { bundle, integrityVerified } = await this.decryptCredentialBundle(
+      parsedBundle,
+      credentialPassword,
+    );
     this.assertUniqueWorkflowExportIds(bundle);
     const definition =
       this.workflowTransferDefinitionService.parseWithLocalCatalog(
@@ -173,6 +217,12 @@ export class WorkflowTransferService {
     const { bindingRefs, taskRefs } = this.collectDefinitionResourceRefs(
       sources.map((source) => source.definition),
     );
+    bindingRefs.credential = [
+      ...(bindingRefs.credential ?? []),
+      ...this.collectWebhookCredentialRefs(
+        sources.map((source) => source.workflow),
+      ),
+    ];
 
     this.assertBundleResourceBucketsAreSupported(bundle.resources);
     this.assertBundleContainsReferencedResources(bundle, bindingRefs, taskRefs);
@@ -215,6 +265,7 @@ export class WorkflowTransferService {
       workflow,
       resources,
       warnings,
+      integrityVerified,
     });
   }
 
@@ -238,6 +289,61 @@ export class WorkflowTransferService {
     }
 
     return validation.data;
+  }
+
+  private async decryptCredentialBundle(
+    bundle: WorkflowExportBundle,
+    credentialPassword?: string,
+  ): Promise<{ bundle: WorkflowExportBundle; integrityVerified: boolean }> {
+    if (!bundle.credentialProtection) {
+      if (bundle.integrity) {
+        throw new BadRequestException(
+          'Workflow export integrity requires password-protected credentials',
+        );
+      }
+
+      return { bundle, integrityVerified: false };
+    }
+    if (!credentialPassword) {
+      throw new BadRequestException(
+        'A password is required to import encrypted credentials',
+      );
+    }
+
+    try {
+      const [encryptionKey, integrityKey] = await deriveWorkflowCredentialKeys(
+        credentialPassword,
+        Buffer.from(bundle.credentialProtection.salt, 'base64'),
+      );
+      const values = decryptWorkflowCredentialValues(
+        bundle.credentialProtection,
+        encryptionKey,
+      );
+      if (!verifyIntegrity(bundle, integrityKey)) {
+        throw new BadRequestException(
+          'Workflow export integrity check failed: the file was modified or corrupted',
+        );
+      }
+      const credentials = bundle.resources.credentials.map((credential) => ({
+        ...credential,
+        value: values[credential.exportId],
+      }));
+
+      return {
+        bundle: {
+          ...bundle,
+          resources: { ...bundle.resources, credentials },
+        },
+        integrityVerified: true,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException(
+        'Unable to decrypt credentials: the password is incorrect or the export file was modified',
+      );
+    }
   }
 
   private async buildWorkflowDependencyResources(
@@ -324,7 +430,12 @@ export class WorkflowTransferService {
       description: workflow.description ?? null,
       type: workflow.type,
       schedule: workflow.schedule ?? null,
-      inputSchema: workflow.inputSchema,
+      ...(workflow.type === WorkflowType.manual
+        ? {
+            inputSchema: workflow.inputSchema,
+            webhookTrigger: workflow.webhookTrigger ?? null,
+          }
+        : {}),
       layout: {
         x: workflow.x,
         y: workflow.y,
@@ -451,6 +562,7 @@ export class WorkflowTransferService {
         source.workflow,
         localName,
         createdBy,
+        importedResources.bindingIdMaps.credential ?? {},
       );
       const workflowEntity = await this.workflowService.createWithManager(
         manager,
@@ -531,6 +643,7 @@ export class WorkflowTransferService {
     workflow: WorkflowExportBundle['workflow'],
     name: string,
     createdBy: string,
+    credentialIdMap: Record<string, string>,
   ): WorkflowCreateWithManagerPayload {
     return {
       name,
@@ -538,6 +651,10 @@ export class WorkflowTransferService {
       type: workflow.type,
       schedule: workflow.schedule,
       inputSchema: workflow.inputSchema,
+      webhookTrigger: this.remapWebhookTrigger(
+        workflow.webhookTrigger,
+        credentialIdMap,
+      ),
       builtin: false,
       x: workflow.layout.x,
       y: workflow.layout.y,
@@ -545,6 +662,67 @@ export class WorkflowTransferService {
       direction: workflow.layout.direction,
       createdBy,
     };
+  }
+
+  private collectWebhookCredentialRefs(
+    workflows: Array<{ webhookTrigger?: WebhookTriggerConfig | null }>,
+  ): string[] {
+    return workflows.flatMap(({ webhookTrigger }) => {
+      switch (webhookTrigger?.authType) {
+        case 'basic':
+          return webhookTrigger.passwordCredentialId ?? [];
+        case 'header':
+          return webhookTrigger.headerValueCredentialId ?? [];
+        case 'jwt':
+          return webhookTrigger.jwtSecretCredentialId ?? [];
+        default:
+          return [];
+      }
+    });
+  }
+
+  private remapWebhookTrigger(
+    webhookTrigger: WebhookTriggerConfig | null | undefined,
+    credentialIdMap: Record<string, string>,
+  ): WebhookTriggerConfig | null | undefined {
+    if (!webhookTrigger || webhookTrigger.authType === 'none') {
+      return webhookTrigger;
+    }
+
+    const remap = (exportId: string | null | undefined) => {
+      if (!exportId) {
+        return exportId;
+      }
+
+      const localId = credentialIdMap[exportId];
+      if (!localId) {
+        throw new BadRequestException(
+          `Workflow webhook references missing credential "${exportId}"`,
+        );
+      }
+
+      return localId;
+    };
+
+    switch (webhookTrigger.authType) {
+      case 'basic':
+        return {
+          ...webhookTrigger,
+          passwordCredentialId: remap(webhookTrigger.passwordCredentialId),
+        };
+      case 'header':
+        return {
+          ...webhookTrigger,
+          headerValueCredentialId: remap(
+            webhookTrigger.headerValueCredentialId,
+          ),
+        };
+      case 'jwt':
+        return {
+          ...webhookTrigger,
+          jwtSecretCredentialId: remap(webhookTrigger.jwtSecretCredentialId),
+        };
+    }
   }
 
   private buildImportedDefinitionYml(
@@ -576,10 +754,12 @@ export class WorkflowTransferService {
   private async buildExportResources(
     bindingRefs: WorkflowBindingResourceRefs,
     taskRefs: WorkflowTaskResourceRefs,
+    includeCredentials: boolean,
   ): Promise<WorkflowExportBundle['resources']> {
     const resources = this.createEmptyResourceBuckets();
     const exportContext = new WorkflowTransferExportContext(
       this.mergeResourceRefs(bindingRefs, taskRefs),
+      includeCredentials,
     );
 
     for (const adapter of this.workflowTransferAdapterRegistry.listInReverseDependencyOrder()) {
@@ -850,9 +1030,10 @@ export class WorkflowTransferService {
     return `${normalizedBase}${suffix}`;
   }
 
-  private buildExportFilename(name: string): string {
+  private buildExportFilename(name: string, isProtected: boolean): string {
     const safeName = sanitizeFilename(name.trim()) || 'workflow';
+    const prefix = isProtected ? 'protected-' : '';
 
-    return `${safeName}.workflow.yml`;
+    return `${prefix}${safeName}.workflow.yml`;
   }
 }

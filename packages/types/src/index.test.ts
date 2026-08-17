@@ -1137,8 +1137,10 @@ describe("@hexabot-ai/types schemas", () => {
         },
       ],
       warnings: ["Credential placeholder created."],
+      integrityVerified: true,
     });
 
+    expect(result.integrityVerified).toBe(true);
     expect(result.resources[0]?.action).toBe("reused");
     expect(result.resources[0]?.kind).toBe("knowledgeBase");
   });

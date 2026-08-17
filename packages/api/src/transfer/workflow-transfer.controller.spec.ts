@@ -60,9 +60,18 @@ describe('WorkflowTransferController', () => {
     const response = {
       setHeader: jest.fn(),
     } as unknown as ExpressResponse;
-    const result = await controller.exportWorkflow(randomUUID(), response);
+    const workflowId = randomUUID();
+    const result = await controller.exportWorkflow(
+      workflowId,
+      undefined,
+      response,
+    );
 
     expect(result).toBe(content);
+    expect(workflowTransferServiceMock.exportWorkflow).toHaveBeenCalledWith(
+      workflowId,
+      undefined,
+    );
     expect(response.setHeader).toHaveBeenCalledWith(
       'Content-Type',
       'application/x-yaml; charset=utf-8',
@@ -70,6 +79,38 @@ describe('WorkflowTransferController', () => {
     expect(response.setHeader).toHaveBeenCalledWith(
       'Content-Disposition',
       'attachment; filename="workflow.workflow.yml"',
+    );
+  });
+
+  it('passes the credential password for protected exports', async () => {
+    workflowTransferServiceMock.exportWorkflow.mockResolvedValue({
+      filename: 'protected.workflow.yml',
+      content: 'encrypted',
+    });
+    const response = {
+      setHeader: jest.fn(),
+    } as unknown as ExpressResponse;
+    const workflowId = randomUUID();
+
+    await controller.exportWorkflow(
+      workflowId,
+      'StrongCredential#123',
+      response,
+    );
+
+    expect(workflowTransferServiceMock.exportWorkflow).toHaveBeenCalledWith(
+      workflowId,
+      'StrongCredential#123',
+    );
+  });
+
+  it('rejects non-string credential passwords', async () => {
+    await expect(
+      controller.exportWorkflow(randomUUID(), null, {
+        setHeader: jest.fn(),
+      } as unknown as ExpressResponse),
+    ).rejects.toThrow(
+      new BadRequestException('Credential password must be a string'),
     );
   });
 
@@ -85,6 +126,7 @@ describe('WorkflowTransferController', () => {
       {
         buffer: Buffer.from('kind: hexabot.workflow.bundle'),
       } as Express.Multer.File,
+      undefined,
       {
         session: { passport: { user: { id: userFixtureIds.admin } } },
       } as any,
@@ -93,6 +135,7 @@ describe('WorkflowTransferController', () => {
     expect(workflowTransferServiceMock.importWorkflow).toHaveBeenCalledWith(
       'kind: hexabot.workflow.bundle',
       userFixtureIds.admin,
+      undefined,
     );
     expect(result.workflow.id).toBe(workflow.id);
   });
@@ -101,6 +144,7 @@ describe('WorkflowTransferController', () => {
     await expect(
       controller.importWorkflow(
         { buffer: Buffer.from('') } as Express.Multer.File,
+        undefined,
         {} as any,
       ),
     ).rejects.toThrow(
@@ -112,12 +156,9 @@ describe('WorkflowTransferController', () => {
 
   it('rejects workflow imports without an uploaded file', async () => {
     await expect(
-      controller.importWorkflow(
-        undefined as any,
-        {
-          session: { passport: { user: { id: userFixtureIds.admin } } },
-        } as any,
-      ),
+      controller.importWorkflow(undefined as any, undefined, {
+        session: { passport: { user: { id: userFixtureIds.admin } } },
+      } as any),
     ).rejects.toThrow(
       new BadRequestException('No workflow bundle file was selected'),
     );

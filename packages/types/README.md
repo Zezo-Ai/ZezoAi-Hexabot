@@ -162,13 +162,25 @@ import {
 ```
 
 `workflowExportBundleSchema` validates the portable
-`hexabot.workflow.bundle` YAML payload. Credential resources include metadata
-only; secret `value` fields are intentionally rejected by the strict schema.
+`hexabot.workflow.bundle` YAML payload. By default, credential resources contain
+metadata only and imports create placeholder values. When credential values are
+included, they are encrypted with AES-256-GCM under a strong export password and
+stored in `credentialProtection`; plaintext `value` fields remain rejected by the
+strict schema.
+
 Resource arrays include workflow dependencies such as called workflows, memory
 definitions, MCP servers, credentials, content types, label groups, and labels.
 The root `workflow.exportId` and `resources.workflows` entries preserve
-`call_workflow` references across imports. Newer resource arrays default to
-empty lists so existing version 1 bundles remain importable.
+`call_workflow` references across imports. Manual workflow input schemas and
+webhook trigger settings, including credential references, are also preserved.
+Conversational and scheduled input schemas are omitted and restored from their
+system defaults during import. Newer resource arrays default to empty lists so
+existing version 1 bundles remain importable.
+
+Password-protected exports also contain a password-derived HMAC-SHA-256
+`integrity` value covering the complete bundle. Import results expose
+`integrityVerified`; it is `true` after successful protected-file verification
+and `false` for unprotected or legacy bundles without integrity protection.
 Extension resource arrays may also be included directly under `resources`; custom
 resource result `kind` values are validated with `workflowTransferResourceKindSchema`.
 

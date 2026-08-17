@@ -77,7 +77,9 @@ export {
 
 export {
   WORKFLOW_EXPORT_BUNDLE_KIND,
+  WORKFLOW_CREDENTIAL_PASSWORD_MIN_LENGTH,
   WORKFLOW_TRANSFER_RESOURCE_KIND_PATTERN,
+  isStrongWorkflowCredentialPassword,
   workflowExportBundleContentTypeSchema,
   workflowExportBundleCredentialSchema,
   workflowExportBundleLabelGroupSchema,
@@ -90,6 +92,7 @@ export {
   workflowImportResourceActionSchema,
   workflowImportResourceResultSchema,
   workflowImportResultSchema,
+  workflowCredentialProtectionSchema,
   workflowTransferResourceKindSchema,
   type WorkflowExportBundle,
   type WorkflowExportBundleContentType,
@@ -100,6 +103,7 @@ export {
   type WorkflowExportBundleMemoryDefinition,
   type WorkflowExportBundleV1,
   type WorkflowExportBundleWorkflowDependency,
+  type WorkflowCredentialProtection,
   type WorkflowImportResourceAction,
   type WorkflowImportResourceResult,
   type WorkflowImportResult,

@@ -22,7 +22,10 @@ export const WorkflowTransferAdapter = (): ClassDecorator =>
 export class WorkflowTransferExportContext {
   private readonly refsByKind = new Map<string, Set<string>>();
 
-  constructor(refs: Record<string, string[]>) {
+  constructor(
+    refs: Record<string, string[]>,
+    public readonly includeCredentials = false,
+  ) {
     for (const [kind, ids] of Object.entries(refs)) {
       this.addResourceRefs(kind, ids);
     }
