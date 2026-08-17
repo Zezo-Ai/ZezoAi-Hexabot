@@ -137,6 +137,7 @@ const ConditionalFormDrawerContent = ({
               value={condition}
               onChange={(nextValue) => onConditionChange(index, nextValue)}
               helperText={conditionHelperText}
+              enableExpressionAssist
               fullWidth
             />
           </Box>
