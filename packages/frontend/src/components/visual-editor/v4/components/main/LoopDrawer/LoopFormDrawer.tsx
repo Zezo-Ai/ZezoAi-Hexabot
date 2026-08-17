@@ -233,6 +233,7 @@ const LoopFormDrawerContent = ({
                   errors.forEachIn ??
                   t("visual_editor.loop_drawer.form.for_each.in_helper")
                 }
+                enableExpressionAssist
                 fullWidth
               />
             </Box>
@@ -250,6 +251,7 @@ const LoopFormDrawerContent = ({
               errors.whileCondition ??
               t("visual_editor.loop_drawer.form.while.helper")
             }
+            enableExpressionAssist
             fullWidth
           />
         </Box>
@@ -290,6 +292,7 @@ const LoopFormDrawerContent = ({
             helperText={
               errors.until ?? t("visual_editor.loop_drawer.form.until.helper")
             }
+            enableExpressionAssist
             fullWidth
           />
         </Box>
@@ -354,6 +357,7 @@ const LoopFormDrawerContent = ({
                   errors.accumulateMerge ??
                   t("visual_editor.loop_drawer.form.accumulate.merge_helper")
                 }
+                enableExpressionAssist
                 fullWidth
               />
             </Box>
