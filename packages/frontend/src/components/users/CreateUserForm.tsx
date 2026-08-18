@@ -8,7 +8,7 @@ import type { Role } from "@hexabot-ai/types";
 import { Button, Link, TextField } from "@mui/material";
 import Grid from "@mui/material/Grid";
 import { FC, Fragment } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, RegisterOptions, useForm } from "react-hook-form";
 
 import { ContentContainer, ContentItem } from "@/app-components/dialogs";
 import AutoCompleteEntitySelect from "@/app-components/inputs/AutoCompleteEntitySelect";
@@ -68,8 +68,6 @@ export const CreateUserForm: FC<ComponentFormProps<undefined>> = ({
   const {
     control,
     register,
-    watch,
-    trigger,
     formState: { errors },
     handleSubmit,
   } = useForm<CreateUserFormData>({
@@ -97,16 +95,12 @@ export const CreateUserForm: FC<ComponentFormProps<undefined>> = ({
     password: {
       ...rules.password,
       required: t("message.password_is_required"),
-    },
+      deps: ["password2"],
+    } satisfies RegisterOptions<CreateUserFormData, "password">,
     password2: {
-      validate: (value?: string) => {
-        if (value !== watch("password")) {
-          trigger("password");
-
-          return t("message.password_match");
-        }
-      },
-    },
+      validate: (value, { password }) =>
+        value === password || t("message.password_match"),
+    } satisfies RegisterOptions<CreateUserFormData, "password2">,
   };
   const onSubmitForm = ({
     password2: _password2,
