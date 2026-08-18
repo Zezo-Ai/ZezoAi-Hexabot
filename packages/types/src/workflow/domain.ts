@@ -8,8 +8,8 @@ import { z } from "zod";
 
 export enum WorkflowType {
   conversational = "conversational",
-  manual = "manual",
   scheduled = "scheduled",
+  manual = "manual",
 }
 
 export enum WorkflowVersionAction {
