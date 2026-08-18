@@ -26,6 +26,7 @@ import {
   buildResourceResult,
   PLACEHOLDER_CREDENTIAL_VALUE,
   uniqueResourceIds,
+  type WorkflowTransferCredentialResource,
   type WorkflowTransferImportAdapterResult,
 } from '../workflow-transfer.types';
 
@@ -46,13 +47,15 @@ export class CredentialTransferAdapter extends WorkflowTransferResourceAdapter {
     return {
       credentials: await this.buildCredentialExportResources(
         ctx.getRefs(this.kind),
+        ctx.includeCredentials,
       ),
     };
   }
 
   private async buildCredentialExportResources(
     ids: string[],
-  ): Promise<WorkflowExportBundleCredential[]> {
+    includeCredentials: boolean,
+  ): Promise<WorkflowTransferCredentialResource[]> {
     const uniqueIds = uniqueResourceIds(ids);
     if (uniqueIds.length === 0) {
       return [];
@@ -67,18 +70,23 @@ export class CredentialTransferAdapter extends WorkflowTransferResourceAdapter {
       credentials.map((credential) => credential.id),
     );
 
-    return credentials.map((credential) => ({
-      exportId: credential.id,
-      name: credential.name,
-      exportedOwnerId: credential.owner,
-    }));
+    return await Promise.all(
+      credentials.map(async (credential) => ({
+        exportId: credential.id,
+        name: credential.name,
+        exportedOwnerId: credential.owner,
+        ...(includeCredentials
+          ? { value: await this.credentialService.findOneValue(credential.id) }
+          : {}),
+      })),
+    );
   }
 
   override async importResources(
     ctx: WorkflowTransferImportContext,
   ): Promise<WorkflowTransferImportAdapterResult> {
     const credentials =
-      ctx.getResources<WorkflowExportBundleCredential>('credentials');
+      ctx.getResources<WorkflowTransferCredentialResource>('credentials');
     const idMap: Record<string, string> = {};
     const resources: WorkflowImportResourceResult[] = [];
     const warnings: string[] = [];
@@ -116,9 +124,11 @@ export class CredentialTransferAdapter extends WorkflowTransferResourceAdapter {
         continue;
       }
 
+      const isPlaceholder =
+        !credential.value || credential.value === PLACEHOLDER_CREDENTIAL_VALUE;
       const payload = {
         name: credential.name,
-        value: PLACEHOLDER_CREDENTIAL_VALUE,
+        value: isPlaceholder ? PLACEHOLDER_CREDENTIAL_VALUE : credential.value,
         owner: { id: ctx.ownerId },
       };
       const created = await ctx.manager.save(
@@ -127,22 +137,26 @@ export class CredentialTransferAdapter extends WorkflowTransferResourceAdapter {
       );
 
       idMap[credential.exportId] = created.id;
-      placeholderExportIds.add(credential.exportId);
+      if (isPlaceholder) {
+        placeholderExportIds.add(credential.exportId);
+      }
       resources.push(
         buildResourceResult({
           kind: 'credential',
           exportId: credential.exportId,
           localId: created.id,
           name: credential.name,
-          action: 'placeholder_created',
+          action: isPlaceholder ? 'placeholder_created' : 'created',
         }),
       );
       postCreateEvents.push(
         buildPostCreateEvent('credential', created, payload),
       );
-      warnings.push(
-        `Credential "${credential.name}" was imported as a placeholder and must be updated before use.`,
-      );
+      if (isPlaceholder) {
+        warnings.push(
+          `Credential "${credential.name}" was imported as a placeholder and must be updated before use.`,
+        );
+      }
     }
 
     return {

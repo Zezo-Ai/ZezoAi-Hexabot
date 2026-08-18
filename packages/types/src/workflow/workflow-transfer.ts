@@ -12,12 +12,21 @@ import {
   memoryScopeSchema,
   workflowTypeSchema,
 } from "./domain";
-import { workflowSchema } from "./workflow";
+import { webhookTriggerSchema, workflowSchema } from "./workflow";
 
 export const WORKFLOW_EXPORT_BUNDLE_KIND = "hexabot.workflow.bundle";
 
 export const WORKFLOW_TRANSFER_RESOURCE_KIND_PATTERN =
   /^[a-z][A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*$/;
+
+export const WORKFLOW_CREDENTIAL_PASSWORD_MIN_LENGTH = 12;
+
+export const isStrongWorkflowCredentialPassword = (password: string) =>
+  password.length >= WORKFLOW_CREDENTIAL_PASSWORD_MIN_LENGTH &&
+  /[a-z]/.test(password) &&
+  /[A-Z]/.test(password) &&
+  /\d/.test(password) &&
+  /[^A-Za-z0-9]/.test(password);
 
 export const workflowTransferResourceKindSchema = z
   .string()
@@ -36,7 +45,8 @@ const workflowExportBundleWorkflowSchema = z.strictObject({
   description: z.string().nullable(),
   type: workflowTypeSchema,
   schedule: z.string().nullable(),
-  inputSchema: z.any(),
+  inputSchema: z.any().optional(),
+  webhookTrigger: webhookTriggerSchema.nullable().optional(),
   layout: workflowExportBundleLayoutSchema,
 });
 const workflowExportBundleVersionSchema = z.strictObject({
@@ -60,6 +70,20 @@ export const workflowExportBundleCredentialSchema = z.strictObject({
   name: z.string().min(1),
   exportedOwnerId: z.string().optional(),
 });
+
+export const workflowCredentialProtectionSchema = z.strictObject({
+  keyDerivation: z.literal("scrypt"),
+  salt: z.string().min(1),
+  cost: z.literal(131072),
+  blockSize: z.literal(8),
+  parallelization: z.literal(1),
+  cipher: z.literal("aes-256-gcm"),
+  iv: z.string().min(1),
+  ciphertext: z.string().min(1),
+  authTag: z.string().min(1),
+});
+
+const workflowExportIntegritySchema = z.string().regex(/^[a-f0-9]{64}$/);
 
 export const workflowExportBundleMcpServerSchema = z.strictObject({
   exportId: z.string().min(1),
@@ -120,7 +144,9 @@ export const workflowExportBundleV1Schema = z.strictObject({
   workflow: workflowExportBundleWorkflowSchema,
   version: workflowExportBundleVersionSchema,
   definitionYml: z.string().min(1),
+  credentialProtection: workflowCredentialProtectionSchema.optional(),
   resources: workflowExportBundleResourcesSchema,
+  integrity: workflowExportIntegritySchema.optional(),
 });
 
 export const workflowExportBundleSchema = workflowExportBundleV1Schema;
@@ -143,6 +169,7 @@ export const workflowImportResultSchema = z.strictObject({
   workflow: workflowSchema,
   resources: z.array(workflowImportResourceResultSchema),
   warnings: z.array(z.string()),
+  integrityVerified: z.boolean(),
 });
 
 export type WorkflowExportBundleMemoryDefinition = z.infer<
@@ -151,6 +178,10 @@ export type WorkflowExportBundleMemoryDefinition = z.infer<
 
 export type WorkflowExportBundleCredential = z.infer<
   typeof workflowExportBundleCredentialSchema
+>;
+
+export type WorkflowCredentialProtection = z.infer<
+  typeof workflowCredentialProtectionSchema
 >;
 
 export type WorkflowExportBundleMcpServer = z.infer<

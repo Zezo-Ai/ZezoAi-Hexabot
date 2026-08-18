@@ -18,7 +18,8 @@ import {
 } from "@hexabot-ai/graph";
 import type { WorkflowImportResult } from "@hexabot-ai/types";
 import debounce from "@mui/utils/debounce";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { parseDocument } from "yaml";
 
 import { useFind } from "@/hooks/crud/useFind";
 import { useGetFromCache } from "@/hooks/crud/useGet";
@@ -29,6 +30,7 @@ import {
 import { useApiClient } from "@/hooks/useApiClient";
 import { useAppRouter } from "@/hooks/useAppRouter";
 import { useAuth } from "@/hooks/useAuth";
+import { useDialogs } from "@/hooks/useDialogs";
 import { useQueryState } from "@/hooks/useQueryState";
 import { useSafeCallback } from "@/hooks/useSafeCallback";
 import { useToast } from "@/hooks/useToast";
@@ -37,6 +39,8 @@ import type { WorkflowExportFile } from "@/services/api.class";
 import { EntityType, Format, QueryType, RouterType } from "@/services/types";
 import type { EntityAttributes } from "@/types/base.types";
 
+import { ExportCredentialsDialog } from "../components/dialogs/ExportCredentialsDialog";
+import { ImportCredentialsDialog } from "../components/dialogs/ImportCredentialsDialog";
 import { WorkflowContext } from "../contexts/workflow.context";
 import { useWorkflowDefinitionState } from "../hooks/useWorkflowDefinitionState";
 import type { WorkflowContextProps } from "../types/workflow.types";
@@ -62,6 +66,7 @@ export const WorkflowProvider: React.FC<WorkflowContextProps> = ({
   const { t } = useTranslate();
   const { toast } = useToast();
   const { apiClient } = useApiClient();
+  const dialogs = useDialogs();
   const { refetchUser } = useAuth();
   const queryClient = useTanstackQueryClient();
   const [flowId] = useQueryState("flowId");
@@ -358,17 +363,33 @@ export const WorkflowProvider: React.FC<WorkflowContextProps> = ({
     link.remove();
     window.URL.revokeObjectURL(url);
   }, []);
-  const { mutate: exportWorkflowMutation, isPending: isExportingWorkflow } =
-    useTanstackMutation<WorkflowExportFile, Error, string>({
-      mutationFn: (workflowId) => apiClient.exportWorkflow(workflowId),
+  const exportInProgressRef = useRef(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const { mutate: exportWorkflowMutation, isPending: isExportMutationPending } =
+    useTanstackMutation<
+      WorkflowExportFile,
+      Error,
+      { workflowId: string; credentialPassword: string | null }
+    >({
+      mutationFn: ({ workflowId, credentialPassword }) =>
+        apiClient.exportWorkflow(workflowId, credentialPassword),
       onSuccess: downloadWorkflowFile,
       onError: (error) => {
         toast.error(error);
       },
+      onSettled: () => {
+        exportInProgressRef.current = false;
+      },
     });
+  const isExportingWorkflow = isExportDialogOpen || isExportMutationPending;
   const { mutate: importWorkflowMutation, isPending: isImportingWorkflow } =
-    useTanstackMutation<WorkflowImportResult, Error, File>({
-      mutationFn: (file) => apiClient.importWorkflowBundle(file),
+    useTanstackMutation<
+      WorkflowImportResult,
+      Error,
+      { file: File; credentialPassword?: string }
+    >({
+      mutationFn: ({ file, credentialPassword }) =>
+        apiClient.importWorkflowBundle(file, credentialPassword),
       onSuccess: (result) => {
         queryClient.setQueryData(
           [QueryType.item, EntityType.WORKFLOW, result.workflow.id],
@@ -378,6 +399,12 @@ export const WorkflowProvider: React.FC<WorkflowContextProps> = ({
         void updateWorkflowURL(result.workflow.id);
         void refetchUser();
         toast.success(t("message.workflow_import_success"));
+
+        if (result.integrityVerified) {
+          toast.info(t("message.workflow_import_integrity_verified"));
+        } else {
+          toast.warning(t("message.workflow_import_integrity_not_verified"));
+        }
 
         if (result.warnings.length > 0) {
           toast.warning(
@@ -392,22 +419,54 @@ export const WorkflowProvider: React.FC<WorkflowContextProps> = ({
       },
     });
   const exportWorkflow = useCallback(
-    (workflowId: string) => {
+    async (workflowId: string) => {
       if (workflowId === flowId && isDefinitionDirty) {
         toast.warning(t("message.workflow_export_save_before"));
 
         return;
       }
+      if (exportInProgressRef.current) {
+        return;
+      }
 
-      exportWorkflowMutation(workflowId);
+      exportInProgressRef.current = true;
+      setIsExportDialogOpen(true);
+      let exportStarted = false;
+
+      try {
+        const credentialPassword = await dialogs.open(ExportCredentialsDialog);
+
+        if (credentialPassword === undefined) {
+          return;
+        }
+
+        exportWorkflowMutation({ workflowId, credentialPassword });
+        exportStarted = true;
+      } finally {
+        setIsExportDialogOpen(false);
+        if (!exportStarted) {
+          exportInProgressRef.current = false;
+        }
+      }
     },
-    [exportWorkflowMutation, flowId, isDefinitionDirty, t, toast],
+    [dialogs, exportWorkflowMutation, flowId, isDefinitionDirty, t, toast],
   );
   const importWorkflowBundle = useCallback(
-    (file: File) => {
-      importWorkflowMutation(file);
+    async (file: File) => {
+      const hasEncryptedCredentials = parseDocument(await file.text()).hasIn([
+        "credentialProtection",
+      ]);
+      const credentialPassword = hasEncryptedCredentials
+        ? await dialogs.open(ImportCredentialsDialog)
+        : undefined;
+
+      if (hasEncryptedCredentials && credentialPassword === undefined) {
+        return;
+      }
+
+      importWorkflowMutation({ file, credentialPassword });
     },
-    [importWorkflowMutation],
+    [dialogs, importWorkflowMutation],
   );
 
   useEffect(() => {
