@@ -8,7 +8,7 @@ import { Button, MenuItem, TextField, Typography } from "@mui/material";
 import Grid from "@mui/material/Grid";
 import { Check, Key, Languages, Mail } from "lucide-react";
 import { FC, useEffect, useMemo } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, RegisterOptions, useForm } from "react-hook-form";
 
 import { ContentContainer, ContentItem } from "@/app-components/dialogs";
 import { Adornment } from "@/app-components/inputs/Adornment";
@@ -52,8 +52,6 @@ export const ProfileForm: FC<ProfileFormProps> = ({
     [user],
   );
   const {
-    watch,
-    trigger,
     handleSubmit,
     control,
     formState: { errors },
@@ -72,16 +70,12 @@ export const ProfileForm: FC<ProfileFormProps> = ({
     },
     password: {
       ...rules.password,
-    },
+      deps: ["password2"],
+    } satisfies RegisterOptions<IProfileAttributes, "password">,
     password2: {
-      validate: (val?: string) => {
-        if (val !== watch("password")) {
-          trigger("password");
-
-          return t("message.password_match");
-        }
-      },
-    },
+      validate: (value, { password }) =>
+        value === password || t("message.password_match"),
+    } satisfies RegisterOptions<IProfileAttributes, "password2">,
   };
   const onSubmitForm = ({
     password,

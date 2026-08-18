@@ -11,7 +11,7 @@ import {
   Key as KeyIcon,
   Repeat2,
 } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { RegisterOptions, useForm } from "react-hook-form";
 import { Link as RouterLink } from "react-router";
 
 import { useApiClientMutation } from "@/hooks/useApiClient";
@@ -39,7 +39,8 @@ export const ResetPassword = () => {
     password: {
       ...rules.password,
       required: t("message.password_is_required"),
-    },
+      deps: ["password2"],
+    } satisfies RegisterOptions<ResetPasswordAttributes, "password">,
     password2: {
       ...rules.password2,
       required: t("message.password_is_required"),
